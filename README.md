@@ -12,64 +12,63 @@
 |       |
 :_______:
 ```
-koll.zsh: keyvez ollama for zsh
+
+An [`oh-my-zsh`](https://ohmyz.sh) plugin that integrates LLMs (OpenAI-compatible API) via [fzf](https://github.com/junegunn/fzf) to provide intelligent shell command suggestions.
 
 <img src="demo.svg" alt="Kollzsh Demo" width="600">
 
-An [`oh-my-zsh`](https://ohmyz.sh) plugin that integrates the OLLAMA AI model 
-with [fzf](https://github.com/junegunn/fzf) to provide intelligent command 
-suggestions based on user input requirements.
-
 ## Features
 
-* **Intelligent Command Suggestions**: Use OLLAMA to generate relevant MacOS
-  terminal commands based on your query or input requirement.
-* **FZF Integration**: Interactively select suggested commands using FZF's fuzzy
-  finder, ensuring you find the right command for your task.
-* **Customizable**: Configure default shortcut, OLLAMA model, and response number
-  to suit your workflow.
+* **Engine-agnostic**: Works with any OpenAI-compatible API — llama.cpp, vLLM, Ollama, etc.
+* **Intelligent Command Suggestions**: Generate shell commands based on your natural language query.
+* **FZF Integration**: Interactively select suggested commands using FZF's fuzzy finder.
+* **Customizable**: Configure shortcut, model, server URL, and response count.
 
 ## Requirements
 
 * `jq` for parsing JSON responses
-* `fzf` for interactive selection of commands
-* `curl` for making API requests
-* `OLLAMA` server running
+* `fzf` for interactive selection
+* `curl` for API requests
+* `python3` for the LLM backend (stdlib only, no pip dependencies)
+* An LLM server with OpenAI-compatible `/v1/chat/completions` endpoint
 
-## Configuration Variables
+## Installation
 
-| Variable Name          | Default Value            | Description                                    |
-|------------------------|--------------------------|------------------------------------------------|
-| `KOLLZSH_MODEL`        | `qwen2.5-coder:3b`       | OLLAMA model to use (e.g., `qwen2.5-coder:3b`) |
-| `KOLLZSH_HOTKEY`       | `^o` (Ctrl-o)            | Default shortcut key for triggering the plugin |
-| `KOLLZSH_COMMAND_COUNT`| `5`                      | Number of command suggestions displayed        |
-| `KOLLZSH_URL`          | `http://localhost:11434` | The URL of OLLAMA server host                  |
-
-## Usage
-
-1. Clone the repository to `oh-my-zsh` custom plugin folder
+1. Clone the repository to oh-my-zsh custom plugin folder:
     ```bash
-    git clone https://github.com/keyvez/kollzsh.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/kollzsh
+    git clone https://github.com/otufaohumanoide/kollzsh.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/kollzsh
     ```
 
-2. Enable the plugin in ~/.zshrc:
+2. Enable the plugin in `~/.zshrc`:
     ```bash
     plugins=(
       [plugins...]
       kollzsh
     )
     ```
-3. Input what you want to do then trigger the plugin. Press the custom shortcut (default is Ctrl-o) to start
-   the command suggestion process.
-4. Interact with FZF: Type a query or input requirement, and FZF will display
-   suggested MacOS terminal commands. Select one to execute.
 
-**Get Started**
+3. Type a task description in your terminal and press the shortcut (default Ctrl+`o`) to get command suggestions. Select one with fzf.
 
-Experience the power of AI-driven command suggestions in your MacOS terminal! This
-plugin is perfect for developers, system administrators, and anyone looking to
-streamline their workflow.
+## Configuration
 
-Let me know if you have any specific requests or changes!
+| Variable | Default | Description |
+|---|---|---|
+| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL` | Model name on the LLM server |
+| `KOLLZSH_HOTKEY` | `^o` | Hotkey binding (Ctrl+o) |
+| `KOLLZSH_COMMAND_COUNT` | `5` | Number of command suggestions |
+| `KOLLZSH_URL` | `http://localhost:8080` | LLM server URL |
 
-![Kollzsh Beer](kollzsh_beer.png)
+### Server URLs for different engines
+
+| Engine | KOLLZSH_URL |
+|---|---|
+| Ollama | `http://localhost:11434` |
+| llama.cpp server | `http://localhost:8080` (default) |
+| vLLM | `http://localhost:8000` |
+
+## Debugging
+
+Logs are written to `/tmp/kollzsh_debug.log`. Enable with:
+```bash
+tail -f /tmp/kollzsh_debug.log
+```

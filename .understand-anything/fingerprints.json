@@ -1,0 +1,343 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "232228952aeedfa02d3917b1112136c5a0c4bf32",
+  "generatedAt": "2026-06-01T23:17:22.697Z",
+  "files": {
+    ".opencode/agents/project-scanner/CURRENT_STATE.md": {
+      "filePath": ".opencode/agents/project-scanner/CURRENT_STATE.md",
+      "contentHash": "630551e4ef58c9395ad8b2104785519a3986960e870db75ccea7274dc8d3793b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": true
+    },
+    ".opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md": {
+      "filePath": ".opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+      "contentHash": "12c0dcae0726eda73f82ada006aa892e1c807d97fe0b90927ec2c08dfbbd23d9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": true
+    },
+    ".opencode/agents/project-scanner/PLAN.md": {
+      "filePath": ".opencode/agents/project-scanner/PLAN.md",
+      "contentHash": "e309552eba19041b22039283bb85d5bea670c1019f2ac35e5fd1d96cb8306487",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    ".opencode/agents/project-scanner/PREVIOUS_STATE.md": {
+      "filePath": ".opencode/agents/project-scanner/PREVIOUS_STATE.md",
+      "contentHash": "9b9a00f9af47db7c654de09c244ff0dacde077c48aed5fee0bbd077e5bed7a1c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/.understandignore": {
+      "filePath": ".understand-anything/.understandignore",
+      "contentHash": "1b00f814fd599ce8ecafb8ba30773284efc29375636409a90276da04e7da8e36",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": false
+    },
+    "AGENT_CONTEXT_FOR_NEXT_RALPH.md": {
+      "filePath": "AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+      "contentHash": "680843fef8888e8f7bad2fb629e64ece368f1781f9cf90f7f92ac4ac59a2cdea",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "CONTEXT_FOR_RLM.md": {
+      "filePath": "CONTEXT_FOR_RLM.md",
+      "contentHash": "08ae2cde928b43ad50822a22af313b20c694dc36ea86029e32bec5e0eba7590b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "CONVERSATION.md": {
+      "filePath": "CONVERSATION.md",
+      "contentHash": "9216975ce99a8ea74680f2c74aafc24f3e03a5457c297901982f7a605cf7963a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "CURRENT_STATE.md": {
+      "filePath": "CURRENT_STATE.md",
+      "contentHash": "29bf9f67b9e07414eab06c490f6fcf15c7023f89cab2c2ae80158fd61c8b4342",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "koll.zsh": {
+      "filePath": "koll.zsh",
+      "contentHash": "0a042a35b29b64aa1e2e0e8c035638d2642aa522c0e06fad8c774b129fbed60f",
+      "functions": [
+        {
+          "name": "log_debug",
+          "params": [],
+          "exported": false,
+          "lineCount": 10
+        },
+        {
+          "name": "validate_required",
+          "params": [],
+          "exported": false,
+          "lineCount": 17
+        },
+        {
+          "name": "fzf_kollzsh",
+          "params": [],
+          "exported": false,
+          "lineCount": 48
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 101,
+      "hasStructuralAnalysis": true
+    },
+    "kollzsh.plugin.zsh": {
+      "filePath": "kollzsh.plugin.zsh",
+      "contentHash": "6d43bdf776b69888376a768704e2c6c8dbba9da3be63e91c69b5a170ccbaeed9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": true
+    },
+    "NOTES_AND_LEARNINGS.md": {
+      "filePath": "NOTES_AND_LEARNINGS.md",
+      "contentHash": "9621d2671ac4ef0c77c591a93e9345bb9eecaace7ecc30a916a01cfc7a555c17",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "ollama_util.py": {
+      "filePath": "ollama_util.py",
+      "contentHash": "93ec9c410e5d3244305b19e6b5788203dcad77dde317eaf4f7e3e72b662d9a18",
+      "functions": [
+        {
+          "name": "log_debug",
+          "params": [
+            "message",
+            "data"
+          ],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "get_shell_command_tool",
+          "params": [
+            "commands"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "interact_with_ollama",
+          "params": [
+            "user_query"
+          ],
+          "exported": true,
+          "lineCount": 46
+        },
+        {
+          "name": "parse_commands",
+          "params": [
+            "content"
+          ],
+          "exported": true,
+          "lineCount": 42
+        },
+        {
+          "name": "normalize_json_string",
+          "params": [
+            "content"
+          ],
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "platform",
+          "specifiers": [
+            "platform"
+          ]
+        },
+        {
+          "source": "ollama",
+          "specifiers": [
+            "Client"
+          ]
+        }
+      ],
+      "exports": [
+        "log_debug",
+        "get_shell_command_tool",
+        "interact_with_ollama",
+        "parse_commands",
+        "normalize_json_string"
+      ],
+      "totalLines": 166,
+      "hasStructuralAnalysis": true
+    },
+    "PLAN.md": {
+      "filePath": "PLAN.md",
+      "contentHash": "77653240d0a2918d9d966b82db3875a38b26b46a080cf9ede023ad192d4ac304",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 11,
+      "hasStructuralAnalysis": true
+    },
+    "PREVIOUS_STATE.md": {
+      "filePath": "PREVIOUS_STATE.md",
+      "contentHash": "9b9a00f9af47db7c654de09c244ff0dacde077c48aed5fee0bbd077e5bed7a1c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "1dc9007f447a782005a18d7115260355e9c63c4d7566544754ac118f4eff5b79",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 75,
+      "hasStructuralAnalysis": true
+    },
+    "RLM_INSTRUCTIONS.md": {
+      "filePath": "RLM_INSTRUCTIONS.md",
+      "contentHash": "20b942a5c9f3d883ee0728656027e57cf620b625f4fd3e4c8826067657c3aa1a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "SUPERVISOR_LOG.md": {
+      "filePath": "SUPERVISOR_LOG.md",
+      "contentHash": "d3cf9fa213a9976e0da92d1273058ce8699c496b61eb32fdc44b59e81cd72036",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "TODOS.md": {
+      "filePath": "TODOS.md",
+      "contentHash": "52dd0ae4e4051caeab5d76378c9cba7a1f63c2bdc25d2e5aa65b3f9129282e01",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": true
+    },
+    "utils.zsh": {
+      "filePath": "utils.zsh",
+      "contentHash": "f482418a21d205fbfb3a49eee55e1a52531ea826e30a43ec6cb413689dfa4d5f",
+      "functions": [
+        {
+          "name": "detect_os",
+          "params": [],
+          "exported": false,
+          "lineCount": 9
+        },
+        {
+          "name": "get_package_manager_install_cmd",
+          "params": [],
+          "exported": false,
+          "lineCount": 28
+        },
+        {
+          "name": "check_command",
+          "params": [],
+          "exported": false,
+          "lineCount": 15
+        },
+        {
+          "name": "check_ollama_running",
+          "params": [],
+          "exported": false,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 69,
+      "hasStructuralAnalysis": true
+    }
+  }
+}

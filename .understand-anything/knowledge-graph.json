@@ -1,0 +1,772 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "kollzsh",
+    "languages": [
+      "markdown",
+      "python",
+      "shell"
+    ],
+    "frameworks": [],
+    "description": "An oh-my-zsh plugin that integrates the OLLAMA AI model with fzf to provide intelligent command suggestions based on user input requirements.",
+    "analyzedAt": "2026-06-01T23:17:02.982711+00:00",
+    "gitCommitHash": "232228952aeedfa02d3917b1112136c5a0c4bf32"
+  },
+  "nodes": [
+    {
+      "id": "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+      "type": "document",
+      "name": "CURRENT_STATE.md",
+      "filePath": ".opencode/agents/project-scanner/CURRENT_STATE.md",
+      "summary": "Tracks the runtime scratch state of the project-scanner sub-agent during its kollzsh project scan, documenting the objective, actions taken, and final scan result.",
+      "tags": [
+        "documentation",
+        "state-tracking",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+      "type": "document",
+      "name": "NOTES_AND_LEARNINGS.md",
+      "filePath": ".opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+      "summary": "Append-only log of durable learnings from project-scanner sub-agent attempts, recording the kollzsh scan outcome including file counts, languages detected, and complexity assessment.",
+      "tags": [
+        "documentation",
+        "learning-log",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.opencode/agents/project-scanner/PLAN.md",
+      "type": "document",
+      "name": "PLAN.md",
+      "filePath": ".opencode/agents/project-scanner/PLAN.md",
+      "summary": "Defines the goal, milestones, and changelog for the project-scanner sub-agent that inventories kollzsh project files for knowledge graph generation.",
+      "tags": [
+        "documentation",
+        "plan",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.opencode/agents/project-scanner/PREVIOUS_STATE.md",
+      "type": "document",
+      "name": "PREVIOUS_STATE.md",
+      "filePath": ".opencode/agents/project-scanner/PREVIOUS_STATE.md",
+      "summary": "Placeholder archive for the previous attempt's state of the project-scanner sub-agent, currently empty as no prior attempts exist.",
+      "tags": [
+        "documentation",
+        "state-tracking",
+        "development"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+      "type": "document",
+      "name": "AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+      "filePath": "AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+      "summary": "Template file for recording context to pass to the next Ralph agent session in the RLM loop.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "template"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:CONTEXT_FOR_RLM.md",
+      "type": "document",
+      "name": "CONTEXT_FOR_RLM.md",
+      "filePath": "CONTEXT_FOR_RLM.md",
+      "summary": "Template reference document for the RLM inner-loop agent, intended to hold large reference materials accessed via grep and slice operations.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "template"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:CONVERSATION.md",
+      "type": "document",
+      "name": "CONVERSATION.md",
+      "filePath": "CONVERSATION.md",
+      "summary": "Append-only conversation log for tracking activity across RLM inner-loop attempts.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "log"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:CURRENT_STATE.md",
+      "type": "document",
+      "name": "CURRENT_STATE.md",
+      "filePath": "CURRENT_STATE.md",
+      "summary": "Scratch state file for the current RLM attempt, recording objective, hypothesis, actions, evidence, and next steps.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "scratch"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:NOTES_AND_LEARNINGS.md",
+      "type": "document",
+      "name": "NOTES_AND_LEARNINGS.md",
+      "filePath": "NOTES_AND_LEARNINGS.md",
+      "summary": "Append-only durable learnings file for recording insights across RLM attempts.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "learnings"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:PLAN.md",
+      "type": "document",
+      "name": "PLAN.md",
+      "filePath": "PLAN.md",
+      "summary": "Project plan template with definition of done, milestones, and changelog sections for the RLM inner loop.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "planning"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:PREVIOUS_STATE.md",
+      "type": "document",
+      "name": "PREVIOUS_STATE.md",
+      "filePath": "PREVIOUS_STATE.md",
+      "summary": "Placeholder file recording the state from the previous RLM attempt for continuity across loops.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "state"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Project documentation for the kollzsh oh-my-zsh plugin covering features, requirements, configuration variables, and usage instructions for AI-powered command suggestions via OLLAMA and fzf.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:RLM_INSTRUCTIONS.md",
+      "type": "document",
+      "name": "RLM_INSTRUCTIONS.md",
+      "filePath": "RLM_INSTRUCTIONS.md",
+      "summary": "Operating manual for the inner-loop RLM agent, defining protocol rules, skill registry, sub-agent playbook, and debug/refactor workflows.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "instructions"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:SUPERVISOR_LOG.md",
+      "type": "document",
+      "name": "SUPERVISOR_LOG.md",
+      "filePath": "SUPERVISOR_LOG.md",
+      "summary": "Append-only log for recording supervisor activities and tracking progress across RLM attempts.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "log"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:TODOS.md",
+      "type": "document",
+      "name": "TODOS.md",
+      "filePath": "TODOS.md",
+      "summary": "Task tracking template for recording outstanding items in the RLM inner loop.",
+      "tags": [
+        "documentation",
+        "rlm-protocol",
+        "planning"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:koll.zsh",
+      "type": "file",
+      "name": "koll.zsh",
+      "filePath": "koll.zsh",
+      "summary": "Main plugin script that validates dependencies, queries the OLLAMA API for command suggestions, and pipes results into fzf for interactive selection, triggered by a configurable hotkey binding.",
+      "tags": [
+        "entry-point",
+        "plugin",
+        "zsh",
+        "ai"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Zsh plugin using zle widget registration and bindkey for hotkey integration."
+    },
+    {
+      "id": "file:kollzsh.plugin.zsh",
+      "type": "file",
+      "name": "kollzsh.plugin.zsh",
+      "filePath": "kollzsh.plugin.zsh",
+      "summary": "Plugin loader for oh-my-zsh that sources the main koll.zsh script using zsh's source resolution with the :A modifier.",
+      "tags": [
+        "entry-point",
+        "loader",
+        "zsh"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils.zsh",
+      "type": "file",
+      "name": "utils.zsh",
+      "filePath": "utils.zsh",
+      "summary": "Utility library providing OS detection, package manager resolution, command existence checking, and OLLAMA server health verification for the kollzsh plugin.",
+      "tags": [
+        "utility",
+        "helper",
+        "zsh"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:koll.zsh:validate_required",
+      "type": "function",
+      "name": "validate_required",
+      "filePath": "koll.zsh",
+      "lineRange": [
+        29,
+        45
+      ],
+      "summary": "Validates that all required tools (jq, fzf, curl, python3) are installed, OLLAMA is running, and the configured model exists before allowing command generation.",
+      "tags": [
+        "validation",
+        "dependency-check"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:koll.zsh:fzf_kollzsh",
+      "type": "function",
+      "name": "fzf_kollzsh",
+      "filePath": "koll.zsh",
+      "lineRange": [
+        47,
+        94
+      ],
+      "summary": "Main plugin function that captures the current zsh buffer, queries OLLAMA via a Python utility script for command suggestions, and presents them in an fzf selector for the user to pick and execute.",
+      "tags": [
+        "main",
+        "core-logic",
+        "fzf-integration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils.zsh:get_package_manager_install_cmd",
+      "type": "function",
+      "name": "get_package_manager_install_cmd",
+      "filePath": "utils.zsh",
+      "lineRange": [
+        15,
+        42
+      ],
+      "summary": "Detects the OS and returns the appropriate package manager install command string (apt-get, dnf, yum, pacman, or brew) for installing missing dependencies.",
+      "tags": [
+        "utility",
+        "os-detection",
+        "package-manager"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils.zsh:check_command",
+      "type": "function",
+      "name": "check_command",
+      "filePath": "utils.zsh",
+      "lineRange": [
+        45,
+        59
+      ],
+      "summary": "Checks whether a given command is available on the system PATH and prints installation instructions using the detected package manager if not found.",
+      "tags": [
+        "utility",
+        "validation",
+        "dependency-check"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Configuration file defining exclusion patterns for the Understand Anything analysis plugin, controlling which files and directories are skipped during knowledge graph generation.",
+      "tags": [
+        "configuration",
+        "exclusion",
+        "analysis"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ollama_util.py",
+      "type": "file",
+      "name": "ollama_util.py",
+      "filePath": "ollama_util.py",
+      "summary": "Python backend that interfaces with the Ollama API to translate natural language queries into shell command suggestions, with fallback parsing for command extraction.",
+      "tags": [
+        "utility",
+        "api-client",
+        "shell-commands",
+        "llm-integration"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Python module with function-calling API pattern for LLM tool integration."
+    },
+    {
+      "id": "function:ollama_util.py:log_debug",
+      "type": "function",
+      "name": "log_debug",
+      "filePath": "ollama_util.py",
+      "lineRange": [
+        21,
+        26
+      ],
+      "summary": "Logs debug messages to a file with optional structured data for troubleshooting.",
+      "tags": [
+        "logging",
+        "utility",
+        "debugging"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:ollama_util.py:get_shell_command_tool",
+      "type": "function",
+      "name": "get_shell_command_tool",
+      "filePath": "ollama_util.py",
+      "lineRange": [
+        28,
+        39
+      ],
+      "summary": "Defines the tool specification for Ollama function calling, returning the commands list as a callable tool schema.",
+      "tags": [
+        "llm-integration",
+        "tool-definition",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:ollama_util.py:interact_with_ollama",
+      "type": "function",
+      "name": "interact_with_ollama",
+      "filePath": "ollama_util.py",
+      "lineRange": [
+        41,
+        86
+      ],
+      "summary": "Core function that formats user queries, sends them to the Ollama model, extracts command suggestions from tool calls, and falls back to content parsing when no tool calls are present.",
+      "tags": [
+        "llm-integration",
+        "api-client",
+        "core-logic"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ollama_util.py:parse_commands",
+      "type": "function",
+      "name": "parse_commands",
+      "filePath": "ollama_util.py",
+      "lineRange": [
+        88,
+        129
+      ],
+      "summary": "Parses shell command lists from Ollama response content, handling markdown-wrapped JSON blocks and falling back to Python ast.literal_eval for malformed responses.",
+      "tags": [
+        "parsing",
+        "json",
+        "fallback",
+        "utility"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ollama_util.py:normalize_json_string",
+      "type": "function",
+      "name": "normalize_json_string",
+      "filePath": "ollama_util.py",
+      "lineRange": [
+        131,
+        147
+      ],
+      "summary": "Normalizes JSON strings by cleaning control characters, handling escape sequences, and collapsing whitespace before parsing.",
+      "tags": [
+        "parsing",
+        "json",
+        "sanitization",
+        "utility"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:.opencode/agents/project-scanner/PLAN.md",
+      "target": "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+      "target": "document:.opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+      "target": "document:.opencode/agents/project-scanner/PREVIOUS_STATE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.opencode/agents/project-scanner/PLAN.md",
+      "target": "document:.opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:koll.zsh",
+      "target": "function:koll.zsh:validate_required",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:koll.zsh",
+      "target": "function:koll.zsh:fzf_kollzsh",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils.zsh",
+      "target": "function:utils.zsh:get_package_manager_install_cmd",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils.zsh",
+      "target": "function:utils.zsh:check_command",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:kollzsh.plugin.zsh",
+      "target": "file:koll.zsh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:koll.zsh",
+      "target": "file:utils.zsh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:README.md",
+      "target": "file:koll.zsh",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:CONTEXT_FOR_RLM.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:CONVERSATION.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:CURRENT_STATE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:NOTES_AND_LEARNINGS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:PLAN.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:PREVIOUS_STATE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:SUPERVISOR_LOG.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:RLM_INSTRUCTIONS.md",
+      "target": "document:TODOS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:log_debug",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:get_shell_command_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:interact_with_ollama",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:parse_commands",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:normalize_json_string",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:log_debug",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:get_shell_command_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:interact_with_ollama",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:parse_commands",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ollama_util.py",
+      "target": "function:ollama_util.py:normalize_json_string",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:plugin",
+      "name": "kollzsh Plugin",
+      "description": "Core oh-my-zsh plugin code and Python backend that integrates OLLAMA with fzf for AI-powered command suggestions, plus the project README",
+      "nodeIds": [
+        "file:koll.zsh",
+        "file:kollzsh.plugin.zsh",
+        "file:utils.zsh",
+        "file:ollama_util.py",
+        "document:README.md"
+      ]
+    },
+    {
+      "id": "layer:rlm-protocol",
+      "name": "RLM Protocol Infrastructure",
+      "description": "Inner-loop agent protocol files including plans, state tracking, instructions, and logs that orchestrate the development workflow via the Ralph loop manager",
+      "nodeIds": [
+        "document:AGENT_CONTEXT_FOR_NEXT_RALPH.md",
+        "document:CONTEXT_FOR_RLM.md",
+        "document:CONVERSATION.md",
+        "document:CURRENT_STATE.md",
+        "document:NOTES_AND_LEARNINGS.md",
+        "document:PLAN.md",
+        "document:PREVIOUS_STATE.md",
+        "document:RLM_INSTRUCTIONS.md",
+        "document:SUPERVISOR_LOG.md",
+        "document:TODOS.md"
+      ]
+    },
+    {
+      "id": "layer:agent-tooling",
+      "name": "Development Tooling",
+      "description": "Sub-agent scaffolding files for project scanning and the Understand Anything analysis plugin configuration",
+      "nodeIds": [
+        "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+        "document:.opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md",
+        "document:.opencode/agents/project-scanner/PLAN.md",
+        "document:.opencode/agents/project-scanner/PREVIOUS_STATE.md",
+        "config:.understand-anything/.understandignore"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Project Overview",
+      "description": "The README introduces kollzsh as an oh-my-zsh plugin that bridges natural language intent with shell commands. It combines OLLAMA's AI model for understanding what you want to do with fzf's fuzzy finder for interactive selection. This document provides the project's purpose, feature list, and setup requirements \u2014 everything a newcomer needs before exploring the code.",
+      "nodeIds": [
+        "document:README.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "Plugin Loader Entry Point",
+      "description": "This is the file oh-my-zsh loads when the plugin is enabled. It sources the main koll.zsh script, acting as a thin bootstrap layer. Understanding this file first reveals the convention oh-my-zsh uses to discover and initialize plugins \u2014 a single loader file that delegates to the real implementation.",
+      "nodeIds": [
+        "file:kollzsh.plugin.zsh"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "Core AI Command Loop",
+      "description": "The heart of the plugin validates that required tools (jq, fzf, curl) are available, constructs a prompt with your natural language input, queries the OLLAMA API for relevant shell commands, and pipes the AI's response into fzf for you to pick and execute. Building on the loader from Step 2, this file orchestrates the entire user-facing workflow from input to execution.",
+      "nodeIds": [
+        "file:koll.zsh"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "Utility Functions",
+      "description": "A shared library of helper functions pulled in by the main script. It detects the operating system, resolves the correct package manager, checks whether commands exist on the system, and verifies that the OLLAMA server is reachable. This is the infrastructure layer that keeps the main script in Step 3 focused on orchestration rather than platform details.",
+      "nodeIds": [
+        "file:utils.zsh"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "Python OLLAMA Backend",
+      "description": "A Python module that provides an alternative path for interfacing with the OLLAMA API. While the shell scripts in Steps 3-4 use curl to talk to OLLAMA directly, this file demonstrates a more structured approach with proper HTTP request handling and JSON parsing. It translates natural language queries into shell command suggestions through Python's requests library.",
+      "nodeIds": [
+        "file:ollama_util.py"
+      ],
+      "languageLesson": "Python's requests library provides a cleaner HTTP interface than shell curl. Error handling with try/except blocks and structured JSON parsing make this backend more maintainable for complex API workflows."
+    },
+    {
+      "order": 6,
+      "title": "Development Protocol Layer",
+      "description": "The RLM (Ralph Loop Manager) protocol files define the development workflow used to build this project. RLM_INSTRUCTIONS.md is the operating manual for the inner-loop agent, while PLAN.md tracks milestones and CURRENT_STATE.md records scratch progress. These documents form a 'process as code' pattern \u2014 the development methodology is version-controlled alongside the source.",
+      "nodeIds": [
+        "document:RLM_INSTRUCTIONS.md",
+        "document:PLAN.md",
+        "document:CURRENT_STATE.md"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "Sub-Agent Automation",
+      "description": "The project-scanner sub-agent files demonstrate how development work was decomposed into autonomous child processes. PLAN.md defines scanning goals, CURRENT_STATE.md tracks runtime scratch state during scans, and NOTES_AND_LEARNINGS.md records durable insights across attempts. This pattern of structured agent orchestration scales to complex multi-step development tasks.",
+      "nodeIds": [
+        "document:.opencode/agents/project-scanner/PLAN.md",
+        "document:.opencode/agents/project-scanner/CURRENT_STATE.md",
+        "document:.opencode/agents/project-scanner/NOTES_AND_LEARNINGS.md"
+      ]
+    },
+    {
+      "order": 8,
+      "title": "Orchestration and Logging",
+      "description": "The conversation log, supervisor log, and todos track the overall development lifecycle. CONVERSATION.md captures the human-agent dialogue, SUPERVISOR_LOG.md records loop-level orchestration decisions, and TODOS.md surfaces outstanding work items. Together with the state tracking from Step 7, these files provide full observability into the development process.",
+      "nodeIds": [
+        "document:CONVERSATION.md",
+        "document:SUPERVISOR_LOG.md",
+        "document:TODOS.md",
+        "document:NOTES_AND_LEARNINGS.md"
+      ]
+    },
+    {
+      "order": 9,
+      "title": "Analysis Tool Configuration",
+      "description": "The .understandignore file configures the Understand Anything analysis plugin, defining which paths to exclude from codebase scanning. This is the finishing piece of the development tooling stack \u2014 after building the plugin (Steps 1-5) and defining the development protocol (Steps 6-8), this file controls the automated analysis that generates the very graph data used to create this tour.",
+      "nodeIds": [
+        "config:.understand-anything/.understandignore"
+      ]
+    }
+  ]
+}

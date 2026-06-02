@@ -58,10 +58,11 @@ check_command() {
     return 0
 }
 
-# Function to check if Ollama is running
-check_ollama_running() {
-    if ! curl -s "$KOLLZSH_URL" | grep -q "Ollama is running"; then
-        echo "🚨 Ollama server not running at $KOLLZSH_URL!"
+# Function to check if LLM server is running
+check_llm_running() {
+    local health_url="${KOLLZSH_URL}/v1/models"
+    if ! curl -sf "$health_url" > /dev/null 2>&1; then
+        echo "🚨 LLM server not running at ${KOLLZSH_URL}!"
         return 1
     fi
     return 0

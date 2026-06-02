@@ -1,11 +1,11 @@
 # default shortcut as Ctrl-o
 (( ! ${+KOLLZSH_HOTKEY} )) && typeset -g KOLLZSH_HOTKEY='^o'
-# default ollama model as qwen2.5-coder:3b
-(( ! ${+KOLLZSH_MODEL} )) && typeset -g KOLLZSH_MODEL='qwen2.5-coder:3b'
+# default llm model
+(( ! ${+KOLLZSH_MODEL} )) && typeset -g KOLLZSH_MODEL='unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL'
 # default response number as 5
 (( ! ${+KOLLZSH_COMMAND_COUNT} )) && typeset -g KOLLZSH_COMMAND_COUNT='5'
-# default ollama server host
-(( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:11434'
+# default llm server host
+(( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:8080'
 
 # Source utility functions
 source "${0:A:h}/utils.zsh"
@@ -33,13 +33,13 @@ validate_required() {
   check_command "curl" || return 1
   check_command "python3" || return 1
   
-  # Check if Ollama is running
-  check_ollama_running || return 1
+  # Check if LLM server is running
+  check_llm_running || return 1
   
   # Check if the specified model exists
-  if ! curl -s "${KOLLZSH_URL}/api/tags" | grep -q $KOLLZSH_MODEL; then
+  if ! curl -s "${KOLLZSH_URL}/v1/models" | grep -q "$KOLLZSH_MODEL"; then
     echo "🚨 Model ${KOLLZSH_MODEL} not found!"
-    echo "Please pull it with: ollama pull ${KOLLZSH_MODEL}"
+    echo "Please ensure it is available on the LLM server at ${KOLLZSH_URL}"
     return 1
   fi
 }
@@ -59,12 +59,12 @@ fzf_kollzsh() {
   print
   print -u1 "👻Please wait..."
 
-  log_debug "Raw Ollama response:" "$KOLLZSH_RESPONSE"
+  log_debug "Raw LLM response:" "$KOLLZSH_RESPONSE"
 
   # Get absolute path to the script directory
   PLUGIN_DIR=${${(%):-%x}:A:h}
   #KOLLZSH_COMMANDS=$(python3 "$PLUGIN_DIR/ollama_util.py" "$KOLLZSH_USER_QUERY")
-  KOLLZSH_COMMANDS=$("$PLUGIN_DIR/venv/bin/python" "$PLUGIN_DIR/ollama_util.py" "$KOLLZSH_USER_QUERY")
+  KOLLZSH_COMMANDS=$(python3 "$PLUGIN_DIR/llm_util.py" "$KOLLZSH_USER_QUERY")
   if [ $? -ne 0 ] || [ -z "$KOLLZSH_COMMANDS" ]; then
     log_debug "Failed to parse commands"
     echo "Error: Failed to parse commands"
