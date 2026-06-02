@@ -21,7 +21,6 @@ calls `llm_util.py` with it, pipes results through fzf, and inserts the selectio
 
 ## Bugs / dead code
 
-- `KOLLZSH_RESPONSE` at `koll.zsh:62` is never set — log line is always empty
 - `KOLLZSH_COMMAND_COUNT` is defined but never read
 - `jq` is checked in `validate_required` but never used in the current code path
 
@@ -32,4 +31,5 @@ calls `llm_util.py` with it, pipes results through fzf, and inserts the selectio
 | `KOLLZSH_URL` | `http://localhost:8080` | Any OpenAI-compatible `/v1/chat/completions` server |
 | `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL` | Must appear in `GET /v1/models` |
 | `KOLLZSH_HOTKEY` | `^o` | ZLE widget binding |
+| `KOLLZSH_PLUGIN_DIR` | auto-detected | Override plugin directory (for testing with a copy of llm_util.py elsewhere) |
 | `KOLLZSH_COMMAND_COUNT` | `5` | Dead — not consumed anywhere |

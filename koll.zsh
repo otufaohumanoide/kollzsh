@@ -46,51 +46,29 @@ validate_required() {
 
 fzf_kollzsh() {
   setopt extendedglob
-  validate_required
-  if [ $? -eq 1 ]; then
-    return 1
-  fi
+  validate_required || return 1
 
-  KOLLZSH_USER_QUERY=$BUFFER
+  local user_query="$BUFFER"
+  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
+  local result
 
-  zle end-of-line
-  zle reset-prompt
+  # Invalidate zle display so fzf can take over the terminal
+  zle -I
+  echo -n "👻 Please wait..."
 
-  print
-  print -u1 "👻Please wait..."
+  log_debug "Sending query:" "$user_query"
 
-  log_debug "Raw LLM response:" "$KOLLZSH_RESPONSE"
+  result=$(python3 "$plugin_dir/llm_util.py" "$user_query" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
 
-  # Get absolute path to the script directory
-  PLUGIN_DIR=${${(%):-%x}:A:h}
-  #KOLLZSH_COMMANDS=$(python3 "$PLUGIN_DIR/ollama_util.py" "$KOLLZSH_USER_QUERY")
-  KOLLZSH_COMMANDS=$(python3 "$PLUGIN_DIR/llm_util.py" "$KOLLZSH_USER_QUERY")
-  if [ $? -ne 0 ] || [ -z "$KOLLZSH_COMMANDS" ]; then
-    log_debug "Failed to parse commands"
-    echo "Error: Failed to parse commands"
-    return 1
-  fi
-  
-  log_debug "Extracted commands:" "$KOLLZSH_COMMANDS"
-
-  tput cuu 1 # cleanup waiting message
-
-  # Use echo to pipe the commands to fzf
-  KOLLZSH_SELECTED=$(echo "$KOLLZSH_COMMANDS" | fzf --ansi --height=~10 --cycle)
-  if [ -n "$KOLLZSH_SELECTED" ]; then
-    BUFFER="$KOLLZSH_SELECTED"
-    CURSOR=${#BUFFER}  # Move cursor to end of buffer
-    
-    # Ensure we're not accepting the line
-    zle -R
-    zle reset-prompt
-    
-    log_debug "Selected command:" "$KOLLZSH_SELECTED"
+  if [ -n "$result" ]; then
+    BUFFER="$result"
+    CURSOR=${#BUFFER}
+    log_debug "Selected command:" "$result"
   else
     log_debug "No command selected"
   fi
-  
-  return 0
+
+  zle reset-prompt
 }
 
 validate_required
