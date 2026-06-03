@@ -6,6 +6,8 @@
 (( ! ${+KOLLZSH_COMMAND_COUNT} )) && typeset -g KOLLZSH_COMMAND_COUNT='5'
 # default llm server host
 (( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:8080'
+# daemon socket path
+(( ! ${+KOLLZSH_DAEMON_SOCK} )) && typeset -g KOLLZSH_DAEMON_SOCK='/tmp/kollzshd.sock'
 
 # Source utility functions
 source "${0:A:h}/utils.zsh"
@@ -28,9 +30,7 @@ log_debug() {
 
 validate_required() {
   # Check required tools are installed
-  check_command "jq" || return 1
   check_command "fzf" || return 1
-  check_command "curl" || return 1
   check_command "python3" || return 1
   
   # Check if LLM server is running
@@ -44,13 +44,49 @@ validate_required() {
   fi
 }
 
+ensure_daemon_running() {
+  if [ -f /tmp/kollzshd.pid ]; then
+    local pid=$(cat /tmp/kollzshd.pid)
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
+  python3 "${plugin_dir}/kollzshd.py" &
+  disown
+  local waited=0
+  while [ ! -S "$KOLLZSH_DAEMON_SOCK" ] && [ $waited -lt 50 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+}
+
+send_to_daemon() {
+  local query="$1"
+  local mode="${2:-navigation}"
+  python3 -c "
+import socket, json, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(sys.argv[1])
+payload = json.dumps({'query': sys.argv[2], 'mode': sys.argv[3]})
+s.sendall(payload.encode() + b'\n')
+s.shutdown(socket.SHUT_WR)
+data = b''
+while True:
+    chunk = s.recv(4096)
+    if not chunk:
+        break
+    data += chunk
+s.close()
+print(data.decode().strip())
+" "$KOLLZSH_DAEMON_SOCK" "$query" "$mode"
+}
+
 fzf_kollzsh() {
   setopt extendedglob
   validate_required || return 1
 
   local user_query="$BUFFER"
-  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
-  local result
 
   # Invalidate zle display so fzf can take over the terminal
   zle -I
@@ -58,7 +94,26 @@ fzf_kollzsh() {
 
   log_debug "Sending query:" "$user_query"
 
-  result=$(python3 "$plugin_dir/llm_util.py" "$user_query" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
+  ensure_daemon_running
+  local response
+  response=$(send_to_daemon "$user_query" "navigation")
+
+  local result
+  if [ -n "$response" ]; then
+    local lines
+    lines=$(echo "$response" | python3 -c '
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    for line in data.get("lines", []):
+        print(line)
+except:
+    pass
+')
+    if [ -n "$lines" ]; then
+      result=$(echo "$lines" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
+    fi
+  fi
 
   if [ -n "$result" ]; then
     BUFFER="$result"
@@ -71,8 +126,69 @@ fzf_kollzsh() {
   zle reset-prompt
 }
 
+fzf_kollzsh_deep() {
+  setopt extendedglob
+  validate_required || return 1
+
+  local user_query="$BUFFER"
+
+  zle -I
+  echo -n "🔍 Searching deeply..."
+
+  ensure_daemon_running
+
+  local response
+  response=$(send_to_daemon "$user_query" "deep")
+
+  if [ -z "$response" ]; then
+    log_debug "No response from daemon"
+    zle reset-prompt
+    return
+  fi
+
+  local lines
+  lines=$(echo "$response" | python3 -c '
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    for line in data.get("lines", []):
+        print(line)
+except:
+    pass
+')
+
+  if [ -n "$lines" ]; then
+    local result
+    result=$(echo "$lines" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
+    if [ -n "$result" ]; then
+      BUFFER="$result"
+      CURSOR=${#BUFFER}
+      log_debug "Selected result:" "$result"
+    fi
+  else
+    log_debug "No results from deep search"
+  fi
+
+  zle reset-prompt
+}
+
+# Clean up daemon on ZSH exit
+_kollzsh_cleanup() {
+  if [ -f /tmp/kollzshd.pid ]; then
+    local pid=$(cat /tmp/kollzshd.pid)
+    kill "$pid" 2>/dev/null
+    rm -f /tmp/kollzshd.pid
+    rm -f /tmp/kollzshd.sock
+  fi
+}
+trap _kollzsh_cleanup EXIT
+
 validate_required
 
 autoload -U fzf_kollzsh
 zle -N fzf_kollzsh
 bindkey "$KOLLZSH_HOTKEY" fzf_kollzsh
+
+autoload -U fzf_kollzsh_deep
+zle -N fzf_kollzsh_deep
+bindkey "^f" fzf_kollzsh_deep
