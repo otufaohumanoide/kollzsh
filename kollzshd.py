@@ -22,6 +22,7 @@ necessidade de parsear sintaxe de shell para detectar ``cd``.
 import json
 import logging
 import os
+import shlex
 import signal
 import socket
 import subprocess
@@ -245,6 +246,9 @@ class KollzshDaemon:
 
                 is_done, extracted = self._parse_deep_response(content)
                 if is_done:
+                    all_output.append('')
+                    all_output.append('---')
+                    all_output.append('')
                     all_output.extend(extracted)
                     break
                 elif extracted:
@@ -274,6 +278,29 @@ class KollzshDaemon:
                 if output:
                     lines = output.strip().split('\n')
                     all_output.extend(lines)
+
+            # Auto-leitura: round 1 do deep mode — cat nos arquivos encontrados
+            if mode == "deep" and round_num == 1:
+                seen = set()
+                file_paths = []
+                for line in all_output:
+                    line = line.strip()
+                    if line.endswith(('.txt', '.md')) and os.path.isfile(line) and line not in seen:
+                        seen.add(line)
+                        file_paths.append(line)
+                # Remove linhas de path bruto do output (serao substituidas pelo conteudo)
+                all_output = [l for l in all_output if l.strip() not in seen]
+                if file_paths:
+                    file_paths = file_paths[:10]
+                    read_cmd = 'echo "========== CONTEUDO DOS ARQUIVOS =========="'
+                    for fp in file_paths:
+                        escaped = shlex.quote(fp)
+                        read_cmd += f"; echo '--- {escaped} ---'; cat {escaped}"
+                    log_debug(f"Auto-reading {len(file_paths)} files: {file_paths}")
+                    success, output, new_cwd = execute_command(read_cmd, self.shell_proc)
+                    if output:
+                        all_output.append('')
+                        all_output.extend(output.strip().split('\n'))
 
             # Navegação: para após round 1
             if mode == "navigation":

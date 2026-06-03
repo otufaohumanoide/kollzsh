@@ -180,25 +180,24 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
     return True, "Command is safe"
 
 
-def truncate_output(lines: List[str], max_lines: int = 40) -> List[str]:
-    """Trunca output usando método sanduíche: top 20 + bottom 20.
+def truncate_output(lines: List[str], max_lines: int = 120) -> List[str]:
+    """Trunca output usando método sanduíche: top 60 + bottom 60.
 
     Quando o output excede ``max_lines``, mantém as primeiras e últimas
-    20 linhas, inserindo um marcador indicando quantas foram omitidas.
-    Isso evita que outputs gigantes (ex: ``cat`` em arquivo minificado)
-    estourem o contexto da LLM.
+    60 linhas, inserindo um marcador indicando quantas foram omitidas.
+    Isso evita que outputs gigantes estourem o contexto da LLM.
 
     Args:
         lines: Lista de linhas de output.
-        max_lines: Limite máximo de linhas (padrão 40).
+        max_lines: Limite máximo de linhas (padrão 120).
 
     Returns:
         Lista truncada com marcador de omission no meio.
     """
     if len(lines) <= max_lines:
         return lines
-    top = 20
-    bottom = 20
+    top = 60
+    bottom = 60
     omitted = len(lines) - top - bottom
     return (lines[:top]
             + [f"... ({omitted} lines omitted) ..."]

@@ -98,6 +98,7 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
         "tools": [TOOL_DEFINITION],
         "tool_choice": "auto",
         "stream": False,
+        "max_tokens": 60000,
     }
 
 
@@ -130,35 +131,35 @@ def build_deep_search_prompt(
     if round_num == 1:
         system_msg = (
             "You search LOCAL FILES to answer user questions. Rules:\n"
-            "1. First, search for relevant files with grep or rg\n"
-            "2. Then, read the found files with cat or head (max 80 lines)\n"
-            "3. Always search inside .txt AND .md files\n"
+            "1. Use grep -ril or rg -il to find relevant files\n"
+            "2. Search inside .txt AND .md files\n"
+            "3. The daemon will auto-read any .txt/.md files found\n"
             "4. Return simple, correct commands — no double escaping\n"
             "EXAMPLES:\n"
-            "  grep -ril 'direito penal' . --include='*.txt' --include='*.md'\n"
-            "  rg -il 'trafico' --type txt --type md\n"
-            "  cat arquivo_encontrado.txt\n"
+            "  grep -ril 'principio da alternatividade' . --include='*.txt' --include='*.md'\n"
+            "  rg -il 'trafico' . -g '*.txt' -g '*.md'\n"
             + (f"\nUser instructions:\n{extra}" if extra else "")
         )
         user_msg = (
             f"Directory: {cwd}\n"
             f'User question: "{query}"\n\n'
-            "Search for relevant files and read their content.\n"
-            "Return a JSON list of 2-4 commands:\n"
-            '{"commands": ["search command", "read command"]}'
+            "Find files relevant to this question.\n"
+            "Return a JSON list of 1-3 search commands:\n"
+            '{"commands": ["search command 1", "search command 2"]}'
         )
     else:
         system_msg = (
-            "You analyzed file contents to answer a user question.\n"
-            "Now provide a clear, direct answer based ONLY on the content.\n"
-            "If you don't have enough content, ask for more specific search.\n"
-            "Return JSON with done=true/false and answer or refine."
-            + (f"\n\nUser instructions:\n{extra}" if extra else "")
+            "You received file contents to answer a user question.\n"
+            "Analyze the content and answer clearly.\n"
+            "For each file, briefly note what it contains.\n"
+            "If content is insufficient, ask for more specific search.\n"
+            "Return JSON with done=true and answer, or done=false and refine."
+            + (f"\nUser instructions:\n{extra}" if extra else "")
         )
         user_msg = (
             f'File contents found:\n{previous_output}\n\n'
             f'Answer this question: "{query}"\n\n'
-            "If you can answer: {\"done\": true, \"answer\": [\"Your\", \"answer\", \"lines\"]}\n"
+            "If you can answer: {\"done\": true, \"answer\": [\"line1\", \"line2\", ...]}\n"
             "If you need more info: {\"done\": false, \"refine\": [\"more commands\"]}"
         )
 
@@ -169,6 +170,7 @@ def build_deep_search_prompt(
             {"role": "user", "content": user_msg},
         ],
         "stream": False,
+        "max_tokens": 60000,
     }
 
     # Round 1 usa tool_calling para extrair comandos estruturados
