@@ -50,6 +50,18 @@ TOOL_DEFINITION: Dict[str, Any] = {
 }
 
 
+def _get_system_context() -> str:
+    """Retorna conteudo extra da env KOLLZSH_SYSTEM_CONTEXT para in-context learning.
+    
+    O usuario pode definir exemplos ou instrucoes que serao injetadas
+    no system prompt da LLM. Exemplo no ~/.zshrc:
+      export KOLLZSH_SYSTEM_CONTEXT="Sempre use aspas simples nos comandos.
+    Exemplo correto: grep -r 'termo' .
+    Exemplo ERRADO: grep -r \\"termo\\" ."
+    """
+    return os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
+
+
 def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
     """Constrói o payload da API para o modo navegação (Ctrl+O).
 
@@ -65,9 +77,11 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
         Dict com payload completo para POST /v1/chat/completions.
     """
     model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL')
+    extra = _get_system_context()
     system_msg = (
         "You are a shell command generator. "
         "Return ONLY a JSON list of strings. No explanation."
+        + (f"\n\nUser examples/instructions:\n{extra}" if extra else "")
     )
     user_msg = (
         f"You are in: {cwd}\n"
@@ -112,11 +126,13 @@ def build_deep_search_prompt(
     """
     model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL')
 
+    extra = _get_system_context()
     if round_num == 1:
         system_msg = (
             "You are a precise shell command generator for deep file search. "
             "Write concise, focused commands using grep, rg, find, cat, head, etc. "
             "Use pipes to limit output: head -30, tail -20."
+            + (f"\n\nUser examples/instructions:\n{extra}" if extra else "")
         )
         user_msg = (
             f"You are in: {cwd}\n"
@@ -133,6 +149,7 @@ def build_deep_search_prompt(
         system_msg = (
             "You are analyzing command output to refine search results. "
             "Decide if the output is sufficient or if more commands are needed."
+            + (f"\n\nUser examples/instructions:\n{extra}" if extra else "")
         )
         user_msg = (
             f'Command output (truncated):\n{previous_output}\n\n'

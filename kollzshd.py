@@ -216,6 +216,12 @@ class KollzshDaemon:
             # Executa cada comando no shell persistente
             for cmd in commands:
                 success, output, new_cwd = execute_command(cmd, self.shell_proc)
+                if not success:
+                    log_debug(f"Command failed, checking shell: {cmd}")
+                    # Se o shell morreu, reinicia para o próximo comando
+                    if not self.shell_proc or self.shell_proc.poll() is not None:
+                        log_debug("Shell died, restarting")
+                        self.start_shell()
                 if new_cwd:
                     self.update_cwd(new_cwd)
                     cwd = self.cwd

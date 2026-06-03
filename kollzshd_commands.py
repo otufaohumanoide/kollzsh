@@ -246,7 +246,7 @@ def execute_command(
         shell_proc.stdin.flush()
     except (BrokenPipeError, OSError) as e:
         log_debug(f"Error writing to shell stdin: {e}")
-        return False, f"Shell pipe error: {e}", None
+        return False, f"[LLM GEROU] {command}\n[ERRO] Shell pipe error: {e}", None
 
     output_lines: List[str] = []
     new_cwd: Optional[str] = None
@@ -257,7 +257,7 @@ def execute_command(
             line = shell_proc.stdout.readline()
             if not line:
                 log_debug("Shell stdout closed unexpectedly")
-                return False, "Shell process exited", None
+                return False, f"[LLM GEROU] {command}\n[ERRO] Shell process exited", None
 
             line_stripped = line.rstrip('\n')
 
