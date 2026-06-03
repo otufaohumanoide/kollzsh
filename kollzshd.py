@@ -29,6 +29,8 @@ import sys
 import time
 from typing import List, Optional
 
+import re
+
 from kollzshd_commands import (
     execute_command, truncate_output, log_debug
 )
@@ -126,6 +128,67 @@ class KollzshDaemon:
             self.cwd = new_cwd
             log_debug(f"CWD changed: {self.cwd}")
 
+    def _parse_deep_response(self, content: str):
+        """Parsing robusto da resposta do round 2 (deep mode).
+
+        A LLM de 4B frequentemente retorna JSON mal formatado:
+        - Arrays extras separados por virgula: "answer": [...], [...]
+        - JSON parcial (rotos)
+        - Resposta em texto livre sem JSON
+
+        Tenta 3 estrategias em ordem:
+        1. json.loads() padrao
+        2. Unir arrays extras no answer via regex
+        3. Extrair texto livre via regex
+
+        Returns:
+            (is_done: bool, extracted: list[str])
+            is_done=True  → resposta final: usar extracted como lines
+            is_done=False → refine: usar extracted como commands
+        """
+        if not content:
+            return False, []
+
+        # Estrategia 1: JSON puro
+        try:
+            parsed = json.loads(content)
+            if not isinstance(parsed, dict):
+                return False, []
+            if parsed.get("done") is True:
+                ans = parsed.get("answer", [])
+                if isinstance(ans, list):
+                    return True, [str(a) for a in ans if a]
+                return True, [str(ans)] if ans else []
+            if parsed.get("done") is False:
+                ref = parsed.get("refine", [])
+                if isinstance(ref, list):
+                    return False, [str(c) for c in ref if c]
+            return False, []
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Estrategia 2: regex para JSON mal formatado
+        # Ex: {"done": true, "answer": [...] , [...] , [...]}
+        done_match = re.search(r'"done"\s*:\s*true', content)
+        refine_match = re.search(r'"done"\s*:\s*false', content)
+        answer_match = re.findall(r'"([^"]+)"', content.split('"answer"')[-1]) if '"answer"' in content else []
+
+        answer_lines = [a for a in answer_match if len(a) > 10]
+        if done_match and answer_lines:
+            return True, answer_lines
+
+        refine_cmds = re.findall(r'"([^"]+)"', content.split('"refine"')[-1]) if '"refine"' in content else []
+        if refine_match and refine_cmds:
+            return False, refine_cmds
+
+        # Estrategia 3: qualquer texto longo = tentar como resposta
+        lines = [l.strip() for l in content.strip().split('\n') if l.strip() and len(l.strip()) > 20]
+        if lines:
+            log_debug("Fallback: extracted response lines from raw content")
+            return True, lines
+
+        return False, []
+
     def run_agent_loop(self, query: str, mode: str = "navigation") -> List[str]:
         """Executa o loop agente de interação com a LLM.
 
@@ -156,14 +219,15 @@ class KollzshDaemon:
         for round_num in range(1, max_rounds + 1):
             log_debug(f"Round {round_num}")
 
-            # Round 1 sempre usa navigation prompt (com tool_calling)
-            # Round 2 usa deep prompt (sem tools, JSON puro)
-            if mode == "navigation" or round_num == 1:
-                payload = build_navigation_prompt(cwd, query)
-            else:
+            # Deep mode usa prompt de busca+analise (2 rounds)
+            # Navigation mode usa prompt de navegação (1 round)
+            if mode == "deep":
                 payload = build_deep_search_prompt(
-                    cwd, query, round_num, '\n'.join(all_output)
+                    cwd, query, round_num,
+                    '\n'.join(all_output) if round_num > 1 else None
                 )
+            else:
+                payload = build_navigation_prompt(cwd, query)
 
             response_data = call_llm(payload)
             if not response_data:
@@ -179,30 +243,12 @@ class KollzshDaemon:
                     message = choices[0].get("message", {})
                     content = message.get("content", "")
 
-                try:
-                    parsed = json.loads(content)
-                    if isinstance(parsed, dict):
-                        if parsed.get("done") is True:
-                            # LLM considerou suficiente — extrai resposta final
-                            answer = parsed.get("answer", [])
-                            if isinstance(answer, list):
-                                all_output.extend([str(a) for a in answer])
-                            else:
-                                all_output.append(str(answer))
-                            break
-                        elif parsed.get("done") is False:
-                            # LLM quer refinar — extrai comandos de refine
-                            refine = parsed.get("refine", [])
-                            if refine and isinstance(refine, list):
-                                commands = [str(c) for c in refine]
-                            else:
-                                break
-                        else:
-                            break
-                    else:
-                        break
-                except (json.JSONDecodeError, ValueError):
+                is_done, extracted = self._parse_deep_response(content)
+                if is_done:
+                    all_output.extend(extracted)
                     break
+                elif extracted:
+                    commands = extracted
             else:
                 # Rounds de navegação e round 1 de deep: extrai comandos
                 commands = extract_commands(response_data)

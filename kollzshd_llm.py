@@ -129,33 +129,37 @@ def build_deep_search_prompt(
     extra = _get_system_context()
     if round_num == 1:
         system_msg = (
-            "You are a precise shell command generator for deep file search. "
-            "Write concise, focused commands using grep, rg, find, cat, head, etc. "
-            "Use pipes to limit output: head -30, tail -20."
-            + (f"\n\nUser examples/instructions:\n{extra}" if extra else "")
+            "You search LOCAL FILES to answer user questions. Rules:\n"
+            "1. First, search for relevant files with grep or rg\n"
+            "2. Then, read the found files with cat or head (max 80 lines)\n"
+            "3. Always search inside .txt AND .md files\n"
+            "4. Return simple, correct commands — no double escaping\n"
+            "EXAMPLES:\n"
+            "  grep -ril 'direito penal' . --include='*.txt' --include='*.md'\n"
+            "  rg -il 'trafico' --type txt --type md\n"
+            "  cat arquivo_encontrado.txt\n"
+            + (f"\nUser instructions:\n{extra}" if extra else "")
         )
         user_msg = (
-            f"You are in: {cwd}\n"
-            f'User query: "{query}"\n\n'
-            "You can run shell commands to explore and find information.\n"
-            "Write precise commands using grep, rg, find, cat, head, etc.\n"
-            "Use pipes to limit output: head -30, tail -20.\n\n"
-            "If the output is insufficient, I will ask you to refine ONCE MORE.\n"
-            "After that, the results go to the user.\n\n"
-            "Return a JSON list of 1-2 commands:\n"
-            '{"commands": ["...", "..."]}'
+            f"Directory: {cwd}\n"
+            f'User question: "{query}"\n\n'
+            "Search for relevant files and read their content.\n"
+            "Return a JSON list of 2-4 commands:\n"
+            '{"commands": ["search command", "read command"]}'
         )
     else:
         system_msg = (
-            "You are analyzing command output to refine search results. "
-            "Decide if the output is sufficient or if more commands are needed."
-            + (f"\n\nUser examples/instructions:\n{extra}" if extra else "")
+            "You analyzed file contents to answer a user question.\n"
+            "Now provide a clear, direct answer based ONLY on the content.\n"
+            "If you don't have enough content, ask for more specific search.\n"
+            "Return JSON with done=true/false and answer or refine."
+            + (f"\n\nUser instructions:\n{extra}" if extra else "")
         )
         user_msg = (
-            f'Command output (truncated):\n{previous_output}\n\n'
-            f'Is this enough to answer "{query}"?\n'
-            "If yes, return {\"done\": true, \"answer\": [\"relevant\", \"lines\"]}\n"
-            "If no, return {\"done\": false, \"refine\": [\"more precise command\"]}"
+            f'File contents found:\n{previous_output}\n\n'
+            f'Answer this question: "{query}"\n\n'
+            "If you can answer: {\"done\": true, \"answer\": [\"Your\", \"answer\", \"lines\"]}\n"
+            "If you need more info: {\"done\": false, \"refine\": [\"more commands\"]}"
         )
 
     payload: Dict[str, Any] = {

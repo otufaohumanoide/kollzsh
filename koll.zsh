@@ -133,7 +133,7 @@ fzf_kollzsh_deep() {
   local user_query="$BUFFER"
 
   zle -I
-  echo -n "🔍 Searching deeply..."
+  echo "🔍 Buscando e analisando..."
 
   ensure_daemon_running
 
@@ -151,6 +151,8 @@ fzf_kollzsh_deep() {
 import json, sys
 try:
     data = json.loads(sys.stdin.read())
+    if "cwd" in data:
+        print("---")
     for line in data.get("lines", []):
         print(line)
 except:
@@ -158,13 +160,9 @@ except:
 ')
 
   if [ -n "$lines" ]; then
-    local result
-    result=$(echo "$lines" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
-    if [ -n "$result" ]; then
-      BUFFER="$result"
-      CURSOR=${#BUFFER}
-      log_debug "Selected result:" "$result"
-    fi
+    BUFFER="$lines"
+    CURSOR=${#BUFFER}
+    log_debug "Deep result:" "$lines"
   else
     log_debug "No results from deep search"
   fi
