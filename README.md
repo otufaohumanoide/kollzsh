@@ -54,24 +54,25 @@ An [`oh-my-zsh`](https://ohmyz.sh) plugin that integrates LLMs (OpenAI-compatibl
 | Key | Widget | Mode | Description |
 |---|---|---|---|
 | `Ctrl+O` | `fzf_kollzsh` | Navigation | LLM generates commands, daemon executes, fzf selects |
-| `Ctrl+G` | `fzf_kollzsh_deep` | Deep Search | LLM explores with grep/find/rg, refines results, fzf selects |
+| `Ctrl+F` | `fzf_kollzsh_deep` | Deep Search | Pi DCI-Agent multi-turn research with context management |
 
 ## Architecture
 
 ```
-ZSH widget (Ctrl+O / Ctrl+G)
+ZSH widget (Ctrl+O / Ctrl+F)
        │
-       ▼
-Daemon Python (kollzshd.py)
-  ├── Persistent bash subprocess (--norc --noprofile)
-  ├── CWD synced via pwd after every command
-  ├── Command safety filter (whitelist read-only)
-  ├── Output truncation (top 20 + bottom 20 lines)
-  └── Max 2 rounds per query
+       ├── navigation ──► Daemon Python (kollzshd.py)
+       │                    ├── Persistent bash subprocess (--norc --noprofile)
+       │                    ├── CWD synced via pwd after every command
+       │                    ├── Command safety filter (whitelist read-only)
+       │                    ├── Output truncation (top 20 + bottom 20 lines)
+       │                    └── Max 2 rounds per query
        │
-       ├─── Round 1: LLM writes commands → daemon executes → stdout truncated
-       ├─── Round 2 (deep only): LLM evaluates output → refines or finalizes
-       └─── Final: output → fzf → user selects
+       └── deep ──► Pi RPC (Node.js DCI-Agent)
+                        ├── Multi-turn research loop
+                        ├── Context management profiles (level0-level5)
+                        ├── Tools: read, bash (read-only)
+                        └── Auto-setup: Node.js, clone, build, models.json
 ```
 
 The daemon starts automatically on first use and shuts down when ZSH exits. A PID file (`/tmp/kollzshd.pid`) prevents duplicate instances.
@@ -84,6 +85,9 @@ The daemon starts automatically on first use and shuts down when ZSH exits. A PI
 | `KOLLZSH_HOTKEY` | `^o` | Hotkey binding for navigation mode |
 | `KOLLZSH_URL` | `http://localhost:8080` | LLM server URL |
 | `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket for daemon communication |
+| `KOLLZSH_PI_MAX_TURNS` | `20` | Max turns for Pi deep search |
+| `KOLLZSH_PI_CONTEXT_LEVEL` | `level3` | Context management level (level0-level5) |
+| `KOLLZSH_PI_AGENT_DIR` | `~/.pi/agent` | Pi agent directory (models.json) |
 
 ### Server URLs for different engines
 
