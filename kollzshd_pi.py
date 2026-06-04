@@ -99,17 +99,26 @@ def _ensure_pi_build(plugin_dir: str) -> str:
     log_debug("Pi CLI not found, cloning and building pi-mono")
     if not os.path.exists(pi_dir):
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", PI_REPO_URL, pi_dir],
+            ["git", "clone", "--depth", "1", "--branch", PI_BRANCH, PI_REPO_URL, pi_dir],
             capture_output=True, text=True, timeout=120,
         )
         if result.returncode != 0:
             raise RuntimeError(f"Git clone failed: {result.stderr}")
+    else:
         result = subprocess.run(
-            ["git", "checkout", PI_BRANCH],
-            cwd=pi_dir, capture_output=True, text=True, timeout=30,
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=pi_dir, capture_output=True, text=True, timeout=10,
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"Git checkout failed: {result.stderr}")
+        if result.returncode != 0 or result.stdout.strip() != PI_BRANCH:
+            current_branch = result.stdout.strip() if result.returncode == 0 else "not-a-git-repo"
+            log_debug(f"Pi dir exists but on '{current_branch}', expected '{PI_BRANCH}'. Re-cloning.")
+            shutil.rmtree(pi_dir)
+            result = subprocess.run(
+                ["git", "clone", "--depth", "1", "--branch", PI_BRANCH, PI_REPO_URL, pi_dir],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"Git clone failed: {result.stderr}")
 
     log_debug("Running npm install in pi-mono")
     result = subprocess.run(
