@@ -76,7 +76,7 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
     Returns:
         Dict com payload completo para POST /v1/chat/completions.
     """
-    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL')
+    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL')
     extra = _get_system_context()
     system_msg = (
         "You are a shell command generator. "
@@ -125,7 +125,7 @@ def build_deep_search_prompt(
     Returns:
         Dict com payload completo para POST /v1/chat/completions.
     """
-    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL')
+    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL')
 
     extra = _get_system_context()
     if round_num == 1:

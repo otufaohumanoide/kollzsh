@@ -41,7 +41,7 @@ TOOL_DEFINITION = {
 
 def interact_with_llm(user_query):
     llm_url = os.getenv('KOLLZSH_URL', 'http://localhost:8080').rstrip('/')
-    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL')
+    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL')
     chat_url = f"{llm_url}/v1/chat/completions"
 
     formatted_query = f"Generate shell commands for the following task: {user_query}. Provide multiple relevant commands if available."

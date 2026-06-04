@@ -1,7 +1,7 @@
 # default shortcut as Ctrl-o
 (( ! ${+KOLLZSH_HOTKEY} )) && typeset -g KOLLZSH_HOTKEY='^o'
 # default llm model
-(( ! ${+KOLLZSH_MODEL} )) && typeset -g KOLLZSH_MODEL='unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL'
+(( ! ${+KOLLZSH_MODEL} )) && typeset -g KOLLZSH_MODEL='unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL'
 # default response number as 5
 (( ! ${+KOLLZSH_COMMAND_COUNT} )) && typeset -g KOLLZSH_COMMAND_COUNT='5'
 # default llm server host
