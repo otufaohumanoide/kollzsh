@@ -71,3 +71,8 @@ zsdoc/data
 # Zunit tests' output
 /tests/_output/*
 !/tests/_output/.gitkeep
+
+# Cloned dependencies (auto-managed by daemon)
+pi-mono/
+DCI-Agent-Lite/
+
