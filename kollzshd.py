@@ -39,6 +39,7 @@ from kollzshd_llm import (
     build_navigation_prompt, build_deep_search_prompt,
     extract_commands, call_llm
 )
+from kollzshd_pi import run_pi_query
 
 # Caminhos de comunicação entre daemon e ZSH
 SOCKET_PATH: str = "/tmp/kollzshd.sock"
@@ -211,6 +212,32 @@ class KollzshDaemon:
             Lista de linhas de output truncado.
         """
         log_debug(f"Agent loop: mode={mode}, query={query}")
+
+        if mode == "deep":
+            plugin_dir = os.environ.get(
+                "KOLLZSH_PLUGIN_DIR",
+                os.path.dirname(os.path.abspath(__file__)),
+            )
+            agent_dir = os.environ.get(
+                "KOLLZSH_PI_AGENT_DIR",
+                os.path.expanduser("~/.pi/agent"),
+            )
+            url = os.environ.get("KOLLZSH_URL", "http://localhost:8080")
+            model = os.environ.get("KOLLZSH_MODEL", "unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL")
+            max_turns = int(os.environ.get("KOLLZSH_PI_MAX_TURNS", "20"))
+            context_level = os.environ.get("KOLLZSH_PI_CONTEXT_LEVEL", "level3")
+            log_debug(f"Deep mode via Pi: url={url}, model={model}, cwd={self.cwd}")
+            try:
+                lines = run_pi_query(
+                    self.cwd, query, plugin_dir, agent_dir,
+                    url, model, max_turns, context_level,
+                )
+                log_debug("Pi query completed, returning results")
+                return truncate_output(lines)
+            except Exception as e:
+                log_debug(f"Pi query failed: {e}")
+                return [f"Deep search error: {e}"]
+
         all_output: List[str] = []
         cwd = self.cwd
 

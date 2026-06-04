@@ -15,6 +15,7 @@ and insert the selection.
 - `kollzshd.py` — socket server (`/tmp/kollzshd.sock`), persistent bash subprocess, CWD tracking, agent loop
 - `kollzshd_commands.py` — command whitelist, safety validation, `execute_command` with `__KSEP__`/`__KEND__` marker protocol, `truncate_output`
 - `kollzshd_llm.py` — prompt construction (navigation vs deep), HTTP calls to LLM, response parsing
+- `kollzshd_pi.py` — Pi RPC client for deep search (Node.js DCI-Agent), auto-setup
 
 **Legacy (unused):**
 - `llm_util.py` — old stateless LLM bridge
@@ -33,7 +34,7 @@ and insert the selection.
 | Key | Widget | Mode | Rounds |
 |---|---|---|---|
 | `Ctrl+O` | `fzf_kollzsh` | Navigation | 1 |
-| `Ctrl+G` | `fzf_kollzsh_deep` | Deep search | 2 |
+| `Ctrl+F` | `fzf_kollzsh_deep` | Deep search | Multi-turn (Pi) |
 
 ## How the daemon works
 
@@ -42,7 +43,7 @@ and insert the selection.
 3. LLM generates shell commands (grep, find, ls, etc.) — no tool abstractions
 4. Daemon executes commands in the persistent shell, captures stdout, syncs CWD via `pwd`
 5. Output is truncated (sandwich: top 20 + bottom 20 lines) and returned as JSON
-6. Deep mode runs up to 2 rounds: generate → execute → LLM evaluates → maybe refine
+6. Deep mode spawns Pi (Node.js DCI-Agent) for multi-turn research with context management
 
 ## Config vars (set in `~/.zshrc` before sourcing oh-my-zsh)
 
@@ -53,6 +54,9 @@ and insert the selection.
 | `KOLLZSH_HOTKEY` | `^o` | ZLE widget binding for navigation |
 | `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket for daemon communication |
 | `KOLLZSH_PLUGIN_DIR` | auto-detected | Override plugin directory |
+| `KOLLZSH_PI_MAX_TURNS` | `20` | Turns máximos por deep search via Pi |
+| `KOLLZSH_PI_CONTEXT_LEVEL` | `level3` | Nível de context management (level0-level5) |
+| `KOLLZSH_PI_AGENT_DIR` | `~/.pi/agent` | Diretório do models.json do Pi |
 
 ## Command whitelist
 

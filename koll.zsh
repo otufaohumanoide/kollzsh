@@ -133,7 +133,7 @@ fzf_kollzsh_deep() {
   local user_query="$BUFFER"
 
   zle -I
-  echo "🔍 Buscando e analisando..."
+  echo "🔍 Deep search (DCI-Agent)..."
 
   ensure_daemon_running
 
