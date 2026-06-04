@@ -80,7 +80,7 @@ The daemon starts automatically on first use and shuts down when ZSH exits. A PI
 
 | Variable | Default | Description |
 |---|---|---|
-| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL` | Model name on the LLM server |
+| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL` | Model name on the LLM server |
 | `KOLLZSH_HOTKEY` | `^o` | Hotkey binding for navigation mode |
 | `KOLLZSH_URL` | `http://localhost:8080` | LLM server URL |
 | `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket for daemon communication |

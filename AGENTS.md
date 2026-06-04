@@ -50,7 +50,7 @@ and insert the selection.
 | Var | Default | Notes |
 |---|---|---|
 | `KOLLZSH_URL` | `http://localhost:8080` | Any OpenAI-compatible `/v1/chat/completions` server |
-| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL` | Must appear in `GET /v1/models` |
+| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL` | Must appear in `GET /v1/models` |
 | `KOLLZSH_HOTKEY` | `^o` | ZLE widget binding for navigation |
 | `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket for daemon communication |
 | `KOLLZSH_PLUGIN_DIR` | auto-detected | Override plugin directory |

@@ -335,7 +335,7 @@ if mode == "deep":
         os.path.expanduser("~/.pi/agent"),
     )
     url = os.environ.get("KOLLZSH_URL", "http://localhost:8080")
-    model = os.environ.get("KOLLZSH_MODEL", "unsloth/Qwen3.5-4B-GGUF:UD-Q8_K_XL")
+    model = os.environ.get("KOLLZSH_MODEL", "unsloth/Qwen3.5-4B-GGUF:UD-Q6_K_XL")
     max_turns = int(os.environ.get("KOLLZSH_PI_MAX_TURNS", "20"))
     context_level = os.environ.get("KOLLZSH_PI_CONTEXT_LEVEL", "level3")
 
