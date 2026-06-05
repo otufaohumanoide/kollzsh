@@ -2,9 +2,11 @@
 import json
 import logging
 import os
+import select
 import shlex
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -18,6 +20,7 @@ logging.basicConfig(
 
 PI_REPO_URL = "https://github.com/jdf-prog/pi-mono.git"
 PI_BRANCH = "codex/context-management-ablation"
+PI_QUERY_TIMEOUT = 300  # 5 minutos máximo para uma query Pi
 
 
 def log_debug(message: str, data: Optional[str] = None) -> None:
@@ -230,6 +233,7 @@ def run_pi_query(
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        start_new_session=True,
     )
 
     prompt = json.dumps({"id": "1", "type": "prompt", "message": query}) + "\n"
@@ -241,7 +245,17 @@ def run_pi_query(
     sent_abort = False
 
     try:
+        deadline = time.time() + PI_QUERY_TIMEOUT
         while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                log_debug(f"Pi query timed out after {PI_QUERY_TIMEOUT}s")
+                break
+
+            ready, _, _ = select.select([proc.stdout], [], [], min(1.0, remaining))
+            if not ready:
+                continue
+
             raw = proc.stdout.readline()
             if not raw:
                 break
@@ -253,6 +267,7 @@ def run_pi_query(
             try:
                 event = json.loads(raw.decode())
             except json.JSONDecodeError:
+                log_debug(f"Pi JSON decode error for line: {raw[:200]}")
                 continue
 
             event_type = event.get("type")
@@ -279,6 +294,10 @@ def run_pi_query(
                 if event_callback:
                     event_callback("think", status="end")
                 break
+
+            # Log unknown event types for debugging
+            if event_type not in ("tool_use", "tool_result"):
+                log_debug(f"Pi unknown event: {event_type}")
     finally:
         try:
             proc.kill()

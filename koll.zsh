@@ -45,13 +45,26 @@ validate_required() {
 }
 
 ensure_daemon_running() {
+  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
+  local restart=0
+
   if [ -f /tmp/kollzshd.pid ]; then
     local pid=$(cat /tmp/kollzshd.pid)
     if kill -0 "$pid" 2>/dev/null; then
-      return 0
+      # Check if daemon code is newer than PID file (code changed)
+      if [ "${plugin_dir}/kollzshd.py" -nt /tmp/kollzshd.pid ] || \
+         [ "${plugin_dir}/kollzshd_pi.py" -nt /tmp/kollzshd.pid ]; then
+        log_debug "Daemon code changed, restarting"
+        kill "$pid" 2>/dev/null
+        rm -f /tmp/kollzshd.pid /tmp/kollzshd.sock
+        restart=1
+      else
+        return 0
+      fi
     fi
   fi
-  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
+
+  rm -f /tmp/kollzshd.sock
   python3 "${plugin_dir}/kollzshd.py" &
   disown
   local waited=0
@@ -59,6 +72,9 @@ ensure_daemon_running() {
     sleep 0.1
     waited=$((waited + 1))
   done
+  if [ $waited -ge 50 ]; then
+    log_debug "Daemon failed to start within 5 seconds"
+  fi
 }
 
 send_to_daemon() {
@@ -162,6 +178,7 @@ def render(event):
         out.append("  [ERRO]   " + event.get("msg", ""))
     return "\n".join(out)
 
+s.settimeout(300.0)
 try:
     reader = s.makefile("r")
     for line in reader:
@@ -178,10 +195,13 @@ try:
         rendered = render(event)
         if rendered:
             print(rendered, file=sys.stderr)
-except BrokenPipeError:
-    pass
+except (BrokenPipeError, OSError) as e:
+    print(json.dumps({"lines": ["Connection lost: " + str(e)], "cwd": ""}))
 finally:
-    s.close()
+    try:
+        s.close()
+    except Exception:
+        pass
 ' "$KOLLZSH_DAEMON_SOCK" "$query"
 }
 
