@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import logging
 import os
 import select
 import shlex
@@ -10,24 +9,12 @@ import time
 from pathlib import Path
 from typing import Callable, List, Optional
 
-LOG_FILE = '/tmp/kollzsh_debug.log'
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.DEBUG,
-    format='[%(asctime)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+from kollzshd_logging import log_debug
 
 PI_REPO_URL = "https://github.com/jdf-prog/pi-mono.git"
 PI_BRANCH = "codex/context-management-ablation"
 PI_QUERY_TIMEOUT = 300  # 5 minutos máximo para uma query Pi
 
-
-def log_debug(message: str, data: Optional[str] = None) -> None:
-    if data:
-        logging.debug(f"{message}\nData: {data}\n----------------------------------------")
-    else:
-        logging.debug(message)
 
 
 def _find_node() -> str:

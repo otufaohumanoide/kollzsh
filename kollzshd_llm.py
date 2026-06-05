@@ -12,22 +12,14 @@ comandos — isso fica a cargo de ``kollzshd_commands.py``.
 
 import ast
 import json
-import logging
 import os
 import re
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
 
-from kollzshd_commands import log_debug, parse_and_validate_commands
-
-LOG_FILE = '/tmp/kollzsh_debug.log'
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.DEBUG,
-    format='[%(asctime)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+from kollzshd_commands import parse_and_validate_commands
+from kollzshd_logging import log_debug
 
 # Definição da tool/function que a LLM pode usar para retornar comandos estruturados
 TOOL_DEFINITION: Dict[str, Any] = {
@@ -98,7 +90,7 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
         "tools": [TOOL_DEFINITION],
         "tool_choice": "auto",
         "stream": False,
-        "max_tokens": 60000,
+        "max_tokens": 8192,
     }
 
 
@@ -170,7 +162,7 @@ def build_deep_search_prompt(
             {"role": "user", "content": user_msg},
         ],
         "stream": False,
-        "max_tokens": 60000,
+        "max_tokens": 8192,
     }
 
     # Round 1 usa tool_calling para extrair comandos estruturados

@@ -8,9 +8,11 @@
 (( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:8080'
 # daemon socket path
 (( ! ${+KOLLZSH_DAEMON_SOCK} )) && typeset -g KOLLZSH_DAEMON_SOCK='/tmp/kollzshd.sock'
+# Plugin directory (auto-detectado: diretorio deste script)
+(( ! ${+KOLLZSH_PLUGIN_DIR} )) && typeset -g KOLLZSH_PLUGIN_DIR="${${(%):-%x}:A:h}"
 
 # Source utility functions
-source "${0:A:h}/utils.zsh"
+source "${KOLLZSH_PLUGIN_DIR}/utils.zsh"
 
 # Set up logging with proper permissions
 KOLLZSH_LOG_FILE="/tmp/kollzsh_debug.log"
@@ -45,15 +47,17 @@ validate_required() {
 }
 
 ensure_daemon_running() {
-  local plugin_dir="${KOLLZSH_PLUGIN_DIR:-${${(%):-%x}:A:h}}"
   local restart=0
 
   if [ -f /tmp/kollzshd.pid ]; then
     local pid=$(cat /tmp/kollzshd.pid)
     if kill -0 "$pid" 2>/dev/null; then
       # Check if daemon code is newer than PID file (code changed)
-      if [ "${plugin_dir}/kollzshd.py" -nt /tmp/kollzshd.pid ] || \
-         [ "${plugin_dir}/kollzshd_pi.py" -nt /tmp/kollzshd.pid ]; then
+      if [ "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" -nt /tmp/kollzshd.pid ] || \
+         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_pi.py" -nt /tmp/kollzshd.pid ] || \
+         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_commands.py" -nt /tmp/kollzshd.pid ] || \
+         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_llm.py" -nt /tmp/kollzshd.pid ] || \
+         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_logging.py" -nt /tmp/kollzshd.pid ]; then
         log_debug "Daemon code changed, restarting"
         kill "$pid" 2>/dev/null
         rm -f /tmp/kollzshd.pid /tmp/kollzshd.sock
@@ -65,7 +69,7 @@ ensure_daemon_running() {
   fi
 
   rm -f /tmp/kollzshd.sock
-  python3 "${plugin_dir}/kollzshd.py" &
+  python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" &
   disown
   local waited=0
   while [ ! -S "$KOLLZSH_DAEMON_SOCK" ] && [ $waited -lt 50 ]; do
@@ -80,22 +84,8 @@ ensure_daemon_running() {
 send_to_daemon() {
   local query="$1"
   local mode="${2:-navigation}"
-  python3 -c "
-import socket, json, sys
-s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.connect(sys.argv[1])
-payload = json.dumps({'query': sys.argv[2], 'mode': sys.argv[3]})
-s.sendall(payload.encode() + b'\n')
-s.shutdown(socket.SHUT_WR)
-data = b''
-while True:
-    chunk = s.recv(4096)
-    if not chunk:
-        break
-    data += chunk
-s.close()
-print(data.decode().strip())
-" "$KOLLZSH_DAEMON_SOCK" "$query" "$mode"
+  python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" send \
+    --query "$query" --mode "$mode" --lines
 }
 
 fzf_kollzsh() {
@@ -104,39 +94,20 @@ fzf_kollzsh() {
 
   local user_query="$BUFFER"
 
-  # Invalidate zle display so fzf can take over the terminal
   zle -I
   echo -n "👻 Please wait..."
 
-  log_debug "Sending query:" "$user_query"
-
   ensure_daemon_running
-  local response
-  response=$(send_to_daemon "$user_query" "navigation")
-
   local result
-  if [ -n "$response" ]; then
-    local lines
-    lines=$(echo "$response" | python3 -c '
-import json, sys
-try:
-    data = json.loads(sys.stdin.read())
-    for line in data.get("lines", []):
-        print(line)
-except:
-    pass
-')
-    if [ -n "$lines" ]; then
-      result=$(echo "$lines" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
-    fi
+  result=$(send_to_daemon "$user_query" "navigation")
+
+  if [ -n "$result" ]; then
+    result=$(echo "$result" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
   fi
 
   if [ -n "$result" ]; then
     BUFFER="$result"
     CURSOR=${#BUFFER}
-    log_debug "Selected command:" "$result"
-  else
-    log_debug "No command selected"
   fi
 
   zle reset-prompt
@@ -144,65 +115,7 @@ except:
 
 stream_from_daemon() {
   local query="$1"
-  python3 -c '
-import json, socket, sys
-
-s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.connect(sys.argv[1])
-payload = json.dumps({"query": sys.argv[2], "mode": "deep"})
-s.sendall(payload.encode() + b"\n")
-s.shutdown(socket.SHUT_WR)
-
-def render(event):
-    t = event.get("type", "")
-    r = event.get("round", "")
-    out = []
-    if t == "think":
-        if event.get("status") == "start":
-            if r:
-                out.append("")
-                sep = "\u2500" * 38
-                out.append("\u2500\u2500 Round " + str(r) + "/2 " + sep)
-            out.append("  [THINK]  " + event.get("msg", ""))
-    elif t == "cmd":
-        out.append("  [CMD]    " + event.get("cmd", ""))
-    elif t == "out":
-        for line in event.get("lines", []):
-            out.append("  [OUT]      " + line)
-    elif t == "read":
-        out.append("  [READ]   Lendo " + event.get("file", "") + "...")
-    elif t == "result":
-        for line in event.get("lines", []):
-            out.append("  [DONE]   " + line)
-    elif t == "error":
-        out.append("  [ERRO]   " + event.get("msg", ""))
-    return "\n".join(out)
-
-s.settimeout(300.0)
-try:
-    reader = s.makefile("r")
-    for line in reader:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if event.get("type") == "done":
-            print(json.dumps({"lines": event.get("lines", []), "cwd": event.get("cwd", "")}))
-            break
-        rendered = render(event)
-        if rendered:
-            print(rendered, file=sys.stderr)
-except (BrokenPipeError, OSError) as e:
-    print(json.dumps({"lines": ["Connection lost: " + str(e)], "cwd": ""}))
-finally:
-    try:
-        s.close()
-    except Exception:
-        pass
-' "$KOLLZSH_DAEMON_SOCK" "$query"
+  python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" stream --query "$query"
 }
 
 fzf_kollzsh_deep() {
@@ -210,7 +123,6 @@ fzf_kollzsh_deep() {
   validate_required || return 1
 
   local user_query="$BUFFER"
-
   zle -I
 
   ensure_daemon_running
@@ -219,28 +131,16 @@ fzf_kollzsh_deep() {
   response=$(stream_from_daemon "$user_query")
 
   if [ -z "$response" ]; then
-    log_debug "No response from daemon"
     zle reset-prompt
     return
   fi
 
   local lines
-  lines=$(echo "$response" | python3 -c '
-import json, sys
-try:
-    data = json.loads(sys.stdin.read())
-    for line in data.get("lines", []):
-        print(line)
-except:
-    pass
-')
+  lines=$(echo "$response" | python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" parse-lines)
 
   if [ -n "$lines" ]; then
     BUFFER="$lines"
     CURSOR=${#BUFFER}
-    log_debug "Deep result:" "$lines"
-  else
-    log_debug "No results from deep search"
   fi
 
   zle reset-prompt

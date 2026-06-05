@@ -13,7 +13,6 @@ marcadores ``__KSEP__`` e ``__KEND__`` para isolar stdout e CWD do resultado.
 
 import ast
 import json
-import logging
 import os
 import re
 import shlex
@@ -21,13 +20,8 @@ import subprocess
 import sys
 from typing import List, Optional, Tuple
 
-LOG_FILE = '/tmp/kollzsh_debug.log'
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.DEBUG,
-    format='[%(asctime)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+from kollzshd_logging import log_debug
+
 
 # Comandos de leitura — executam automaticamente sem confirmação do usuário
 READONLY_COMMANDS: set[str] = {
@@ -46,19 +40,6 @@ DESTRUCTIVE_COMMANDS: set[str] = {
     "brew", "dnf", "yum", "pip", "npm", "docker", "systemctl", "mkfs", "dd",
     "shutdown", "reboot", "halt", "poweroff", "init",
 }
-
-
-def log_debug(message: str, data: Optional[str] = None) -> None:
-    """Registra mensagem de debug no log do daemon.
-
-    Args:
-        message: Mensagem principal.
-        data: Dados adicionais opcionais (payload, output, etc).
-    """
-    if data:
-        logging.debug(f"{message}\nData: {data}\n----------------------------------------")
-    else:
-        logging.debug(message)
 
 
 def is_readonly(command: str) -> bool:
@@ -169,7 +150,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
         'rm': ['-rf', '-r', '-f', '-fr'],
         'dd': ['of=', 'if='],
         'mkfs': [],
-        'chmod': ['-R', '777', '755'],
+        'chmod': ['-R'],
         'chown': ['-R'],
     }
     if first_token in dangerous_flags:
