@@ -6,7 +6,7 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 LOG_FILE = '/tmp/kollzsh_debug.log'
 logging.basicConfig(
@@ -190,6 +190,9 @@ def ensure_pi_ready(plugin_dir: str, agent_dir: str, url: str, model: str) -> st
     return node_path
 
 
+EventCallback = Callable[..., None]
+
+
 def run_pi_query(
     cwd: str,
     query: str,
@@ -199,6 +202,7 @@ def run_pi_query(
     model: str,
     max_turns: int = 20,
     context_level: str = "level3",
+    event_callback: Optional[EventCallback] = None,
 ) -> List[str]:
     node_path = ensure_pi_ready(plugin_dir, agent_dir, url, model)
     package_dir = os.path.join(plugin_dir, "pi-mono", "packages", "coding-agent")
@@ -255,6 +259,8 @@ def run_pi_query(
 
             if event_type == "turn_start":
                 seen_turns += 1
+                if event_callback:
+                    event_callback("think", status="start", msg=f"Pi turn {seen_turns}/{max_turns}")
                 if max_turns and seen_turns > max_turns and not sent_abort:
                     abort = json.dumps({"id": "2", "type": "abort"}) + "\n"
                     proc.stdin.write(abort.encode())
@@ -270,6 +276,8 @@ def run_pi_query(
                 continue
 
             if event_type == "agent_end":
+                if event_callback:
+                    event_callback("think", status="end")
                 break
     finally:
         try:
@@ -286,5 +294,7 @@ def run_pi_query(
     if not result:
         log_debug("Pi returned empty result, checking stderr")
         result = "[Deep search error] Check /tmp/kollzsh_debug.log for details"
+    elif event_callback:
+        event_callback("result", lines=result.split("\n"))
 
     return result.split("\n")

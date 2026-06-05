@@ -126,6 +126,65 @@ except:
   zle reset-prompt
 }
 
+stream_from_daemon() {
+  local query="$1"
+  python3 -c '
+import json, socket, sys
+
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(sys.argv[1])
+payload = json.dumps({"query": sys.argv[2], "mode": "deep"})
+s.sendall(payload.encode() + b"\n")
+s.shutdown(socket.SHUT_WR)
+
+def render(event):
+    t = event.get("type", "")
+    r = event.get("round", "")
+    out = []
+    if t == "think":
+        if event.get("status") == "start":
+            if r:
+                out.append("")
+                sep = "\u2500" * 38
+                out.append("\u2500\u2500 Round " + str(r) + "/2 " + sep)
+            out.append("  [THINK]  " + event.get("msg", ""))
+    elif t == "cmd":
+        out.append("  [CMD]    " + event.get("cmd", ""))
+    elif t == "out":
+        for line in event.get("lines", []):
+            out.append("  [OUT]      " + line)
+    elif t == "read":
+        out.append("  [READ]   Lendo " + event.get("file", "") + "...")
+    elif t == "result":
+        for line in event.get("lines", []):
+            out.append("  [DONE]   " + line)
+    elif t == "error":
+        out.append("  [ERRO]   " + event.get("msg", ""))
+    return "\n".join(out)
+
+try:
+    reader = s.makefile("r")
+    for line in reader:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "done":
+            print(json.dumps({"lines": event.get("lines", []), "cwd": event.get("cwd", "")}))
+            break
+        rendered = render(event)
+        if rendered:
+            print(rendered, file=sys.stderr)
+except BrokenPipeError:
+    pass
+finally:
+    s.close()
+' "$KOLLZSH_DAEMON_SOCK" "$query"
+}
+
 fzf_kollzsh_deep() {
   setopt extendedglob
   validate_required || return 1
@@ -133,12 +192,11 @@ fzf_kollzsh_deep() {
   local user_query="$BUFFER"
 
   zle -I
-  echo "🔍 Deep search (DCI-Agent)..."
 
   ensure_daemon_running
 
   local response
-  response=$(send_to_daemon "$user_query" "deep")
+  response=$(stream_from_daemon "$user_query")
 
   if [ -z "$response" ]; then
     log_debug "No response from daemon"
@@ -151,8 +209,6 @@ fzf_kollzsh_deep() {
 import json, sys
 try:
     data = json.loads(sys.stdin.read())
-    if "cwd" in data:
-        print("---")
     for line in data.get("lines", []):
         print(line)
 except:

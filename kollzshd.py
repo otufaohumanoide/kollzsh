@@ -28,7 +28,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import List, Optional
+from typing import Callable, Dict, List, Optional
 
 import re
 
@@ -40,6 +40,8 @@ from kollzshd_llm import (
     extract_commands, call_llm
 )
 from kollzshd_pi import run_pi_query
+
+EventSender = Callable[..., None]
 
 # Caminhos de comunicação entre daemon e ZSH
 SOCKET_PATH: str = "/tmp/kollzshd.sock"
@@ -191,22 +193,23 @@ class KollzshDaemon:
 
         return False, []
 
-    def run_agent_loop(self, query: str, mode: str = "navigation") -> List[str]:
+    def run_agent_loop(self, query: str, mode: str = "navigation", event_sender: Optional[EventSender] = None) -> List[str]:
         """Executa o loop agente de interação com a LLM.
 
         Modo navegação (1 round):
             LLM gera comandos → daemon executa → retorna output.
 
-        Modo busca profunda (2 rounds):
+        Modo busca profunda (2 rounds via LLM):
             Round 1: LLM gera comandos → daemon executa
             Round 2: LLM recebe output → decide se refina ou finaliza
 
-        Se a LLM não retornar ``done: true`` no round 2, o daemon
-        coleta o que tem e finaliza — o usuário decide no fzf.
+        Modo busca profunda (via Pi DCI-Agent):
+            Delega para run_pi_query com event_callback para streaming.
 
         Args:
             query: Consulta do usuário.
             mode: ``"navigation"`` ou ``"deep"``.
+            event_sender: Callback para emitir eventos de progresso (deep mode).
 
         Returns:
             Lista de linhas de output truncado.
@@ -231,24 +234,28 @@ class KollzshDaemon:
                 lines = run_pi_query(
                     self.cwd, query, plugin_dir, agent_dir,
                     url, model, max_turns, context_level,
+                    event_callback=event_sender,
                 )
                 log_debug("Pi query completed, returning results")
                 return truncate_output(lines)
             except Exception as e:
                 log_debug(f"Pi query failed: {e}")
+                if event_sender:
+                    event_sender("error", msg=f"Pi query failed: {e}")
                 return [f"Deep search error: {e}"]
 
         all_output: List[str] = []
         cwd = self.cwd
 
-        # Navegação: round único. Busca profunda: até MAX_ROUNDS.
         max_rounds = 1 if mode == "navigation" else MAX_ROUNDS
 
         for round_num in range(1, max_rounds + 1):
             log_debug(f"Round {round_num}")
 
-            # Deep mode usa prompt de busca+analise (2 rounds)
-            # Navigation mode usa prompt de navegação (1 round)
+            if event_sender:
+                msg = "Buscando arquivos relevantes..." if round_num == 1 else "Analisando resultados..."
+                event_sender("think", round=round_num, status="start", msg=msg)
+
             if mode == "deep":
                 payload = build_deep_search_prompt(
                     cwd, query, round_num,
@@ -261,9 +268,13 @@ class KollzshDaemon:
             if not response_data:
                 log_debug("LLM call failed")
                 all_output.append("Error: LLM call failed")
+                if event_sender:
+                    event_sender("error", round=round_num, msg="LLM call failed")
                 break
 
-            # Round 2 do modo deep: LLM retorna done/refine em vez de comandos
+            if event_sender:
+                event_sender("think", round=round_num, status="end")
+
             if mode == "deep" and round_num == 2:
                 content = ""
                 choices = response_data.get("choices", [])
@@ -277,11 +288,12 @@ class KollzshDaemon:
                     all_output.append('---')
                     all_output.append('')
                     all_output.extend(extracted)
+                    if event_sender:
+                        event_sender("result", round=round_num, lines=extracted)
                     break
                 elif extracted:
                     commands = extracted
             else:
-                # Rounds de navegação e round 1 de deep: extrai comandos
                 commands = extract_commands(response_data)
 
             if not commands:
@@ -290,12 +302,12 @@ class KollzshDaemon:
                     all_output.append("No relevant commands found")
                 break
 
-            # Executa cada comando no shell persistente
             for cmd in commands:
+                if event_sender:
+                    event_sender("cmd", round=round_num, cmd=cmd)
                 success, output, new_cwd = execute_command(cmd, self.shell_proc)
                 if not success:
                     log_debug(f"Command failed, checking shell: {cmd}")
-                    # Se o shell morreu, reinicia para o próximo comando
                     if not self.shell_proc or self.shell_proc.poll() is not None:
                         log_debug("Shell died, restarting")
                         self.start_shell()
@@ -303,10 +315,11 @@ class KollzshDaemon:
                     self.update_cwd(new_cwd)
                     cwd = self.cwd
                 if output:
-                    lines = output.strip().split('\n')
-                    all_output.extend(lines)
+                    lines_out = output.strip().split('\n')
+                    all_output.extend(lines_out)
+                    if event_sender:
+                        event_sender("out", round=round_num, lines=lines_out)
 
-            # Auto-leitura: round 1 do deep mode — cat nos arquivos encontrados
             if mode == "deep" and round_num == 1:
                 seen = set()
                 file_paths = []
@@ -315,10 +328,12 @@ class KollzshDaemon:
                     if line.endswith(('.txt', '.md')) and os.path.isfile(line) and line not in seen:
                         seen.add(line)
                         file_paths.append(line)
-                # Remove linhas de path bruto do output (serao substituidas pelo conteudo)
                 all_output = [l for l in all_output if l.strip() not in seen]
                 if file_paths:
                     file_paths = file_paths[:10]
+                    for fp in file_paths:
+                        if event_sender:
+                            event_sender("read", round=round_num, file=fp)
                     read_cmd = 'echo "========== CONTEUDO DOS ARQUIVOS =========="'
                     for fp in file_paths:
                         escaped = shlex.quote(fp)
@@ -329,11 +344,55 @@ class KollzshDaemon:
                         all_output.append('')
                         all_output.extend(output.strip().split('\n'))
 
-            # Navegação: para após round 1
             if mode == "navigation":
                 break
 
         return truncate_output(all_output)
+
+    def handle_request_streaming(self, request_data: str, conn: socket.socket) -> None:
+        """Processa requisição com streaming de eventos.
+
+        Diferente de handle_request (que retorna uma string),
+        esta versão escreve eventos JSON line-by-line no socket
+        conforme cada etapa do processamento acontece.
+
+        Args:
+            request_data: String JSON com ``query`` e ``mode``.
+            conn: Socket connection para enviar eventos.
+        """
+        self.last_activity = time.time()
+        log_debug("Received request (streaming):", request_data)
+
+        def send_event(type_name: str, **kwargs) -> None:
+            event: Dict[str, object] = {"type": type_name}
+            event.update(kwargs)
+            try:
+                conn.sendall((json.dumps(event) + '\n').encode())
+            except Exception:
+                pass
+
+        try:
+            request = json.loads(request_data)
+        except json.JSONDecodeError as e:
+            log_debug(f"Invalid JSON: {e}")
+            send_event("error", msg="Invalid request")
+            send_event("done", lines=["Error: invalid request"], cwd=self.cwd)
+            return
+
+        query = request.get("query", "")
+        mode = request.get("mode", "navigation")
+
+        if not query:
+            send_event("error", msg="Empty query")
+            send_event("done", lines=["Error: empty query"], cwd=self.cwd)
+            return
+
+        if not self.shell_proc or self.shell_proc.poll() is not None:
+            log_debug("Shell is dead, restarting")
+            self.start_shell()
+
+        lines = self.run_agent_loop(query, mode, event_sender=send_event)
+        send_event("done", lines=lines, cwd=self.cwd)
 
     def handle_request(self, request_data: str) -> str:
         """Processa uma requisição JSON do widget ZSH.
@@ -453,14 +512,16 @@ class KollzshDaemon:
                         if not chunk:
                             break
                         data += chunk
-                        # Protocolo: request termina com newline
                         if b'\n' in data:
                             break
 
                     if data:
                         request_data = data.decode('utf-8').strip()
-                        response = self.handle_request(request_data)
-                        conn.sendall((response + '\n').encode('utf-8'))
+                        if '"deep"' in request_data:
+                            self.handle_request_streaming(request_data, conn)
+                        else:
+                            response = self.handle_request(request_data)
+                            conn.sendall((response + '\n').encode('utf-8'))
                 except Exception as e:
                     log_debug(f"Error handling connection: {e}")
                 finally:
