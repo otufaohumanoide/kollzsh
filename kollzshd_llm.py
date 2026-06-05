@@ -2,7 +2,7 @@
 """Módulo de interação com LLM para o daemon kollzsh.
 
 Responsável por:
-- Construir prompts para os dois modos de operação (navegação e busca profunda)
+- Construir prompt para o modo navegação
 - Realizar chamadas HTTP à API OpenAI-compatible do servidor LLM
 - Extrair comandos de respostas da LLM (tool_calls ou parsing de conteúdo)
 
@@ -92,85 +92,6 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
         "stream": False,
         "max_tokens": 8192,
     }
-
-
-def build_deep_search_prompt(
-    cwd: str,
-    query: str,
-    round_num: int,
-    previous_output: Optional[str] = None
-) -> Dict[str, Any]:
-    """Constrói o payload da API para o modo busca profunda (Ctrl+G).
-
-    Round 1: LLM gera comandos de busca (com tool_calling).
-    Round 2: LLM recebe o output executado e decide se precisa refinar.
-
-    No round 2, NÃO usamos tool_calling — a LLM retorna JSON puro
-    com ``done`` (True/False) e ``answer``/``refine``.
-
-    Args:
-        cwd: Diretório de trabalho atual do daemon.
-        query: Consulta do usuário.
-        round_num: Número do round (1 ou 2).
-        previous_output: Output do round 1 (necessário apenas no round 2).
-
-    Returns:
-        Dict com payload completo para POST /v1/chat/completions.
-    """
-    model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL')
-
-    extra = _get_system_context()
-    if round_num == 1:
-        system_msg = (
-            "You search LOCAL FILES to answer user questions. Rules:\n"
-            "1. Use grep -ril or rg -il to find relevant files\n"
-            "2. Search inside .txt AND .md files\n"
-            "3. The daemon will auto-read any .txt/.md files found\n"
-            "4. Return simple, correct commands — no double escaping\n"
-            "EXAMPLES:\n"
-            "  grep -ril 'principio da alternatividade' . --include='*.txt' --include='*.md'\n"
-            "  rg -il 'trafico' . -g '*.txt' -g '*.md'\n"
-            + (f"\nUser instructions:\n{extra}" if extra else "")
-        )
-        user_msg = (
-            f"Directory: {cwd}\n"
-            f'User question: "{query}"\n\n'
-            "Find files relevant to this question.\n"
-            "Return a JSON list of 1-3 search commands:\n"
-            '{"commands": ["search command 1", "search command 2"]}'
-        )
-    else:
-        system_msg = (
-            "You received file contents to answer a user question.\n"
-            "Analyze the content and answer clearly.\n"
-            "For each file, briefly note what it contains.\n"
-            "If content is insufficient, ask for more specific search.\n"
-            "Return JSON with done=true and answer, or done=false and refine."
-            + (f"\nUser instructions:\n{extra}" if extra else "")
-        )
-        user_msg = (
-            f'File contents found:\n{previous_output}\n\n'
-            f'Answer this question: "{query}"\n\n'
-            "If you can answer: {\"done\": true, \"answer\": [\"line1\", \"line2\", ...]}\n"
-            "If you need more info: {\"done\": false, \"refine\": [\"more commands\"]}"
-        )
-
-    payload: Dict[str, Any] = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ],
-        "stream": False,
-        "max_tokens": 8192,
-    }
-
-    # Round 1 usa tool_calling para extrair comandos estruturados
-    if round_num == 1:
-        payload["tools"] = [TOOL_DEFINITION]
-        payload["tool_choice"] = "auto"
-
-    return payload
 
 
 def extract_commands(response_data: Dict[str, Any]) -> List[str]:

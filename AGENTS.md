@@ -17,13 +17,9 @@ ZSH widget → Unix socket → kollzshd.py (Python daemon)
 
 **Daemon (Python, stdlib-only — no pip, no venv):**
 - `kollzshd.py` — socket server (`/tmp/kollzshd.sock`), persistent bash subprocess, CWD tracking, agent loop, streaming event protocol
-- `kollzshd_commands.py` — command whitelist, safety validation, `execute_command` with `__KSEP__`/`__KEND__` marker protocol, `truncate_output` (sandwich: top 60 + bottom 60 lines)
-- `kollzshd_llm.py` — prompt construction (navigation vs deep), HTTP calls to LLM (`urllib`, no `requests`), response parsing
+- `kollzshd_commands.py` — command whitelist, safety validation, `execute_command` with `__KSEP__`/`__KEND__` marker protocol, `truncate_output` (sandwich: top N + bottom N lines)
+- `kollzshd_llm.py` — prompt construction (navigation mode), HTTP calls to LLM (`urllib`, no `requests`), response parsing
 - `kollzshd_pi.py` — Pi RPC client for deep search (Node.js DCI-Agent), auto-setup (nvm, git clone, npm install, build)
-
-**Legacy (unused, candidate for removal):**
-- `llm_util.py` — old stateless LLM bridge
-- `ollama_util.py` — old Ollama client
 
 ## Widgets and hotkeys
 
@@ -113,9 +109,7 @@ Pipelines with destructive commands are blocked. Redirects to block devices are 
 
 ## Gotchas
 
-- Socket communication uses inline Python (`python3 -c '...'`), not `socat` or `jq`
-- `send_to_daemon` uses double-quoted Python (safe for single quotes in queries)
-- `stream_from_daemon` uses single-quoted Python (all Python strings must use double quotes)
+- Socket communication via kollzshd_client.py (send, stream, parse-lines subcommands), not inline Python
 - Daemon's bash subprocess uses `--norc --noprofile` — no user aliases or configs
 - CWD is synced by appending `; echo '__KSEP__'; pwd; echo '__KEND__'` to every command
 - `validate_required` checks: `fzf`, `python3`, LLM server health (`/v1/models`), model existence

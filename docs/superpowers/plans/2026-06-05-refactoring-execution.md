@@ -384,3 +384,16 @@ fzf_kollzsh_deep() {
 ```
 
 - [ ] **Commit**
+
+---
+
+## Pos-implantacao
+
+Os seguintes itens foram implementados em sessao separada
+(`2026-06-05-refactoring-cleanup.md`):
+
+1. Remocao de `llm_util.py` e `ollama_util.py` (334 linhas mortas)
+2. Correcao de `truncate_output` (sanduiche dinamico proporcional a `max_lines`)
+3. Remocao de `is_readonly()` (dead code em `kollzshd_commands.py`)
+4. Remocao de `build_deep_search_prompt()` (dead code em `kollzshd_llm.py`)
+5. Atualizacao de docs (AGENTS.md, spec e plan)

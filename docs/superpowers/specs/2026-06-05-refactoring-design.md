@@ -531,10 +531,9 @@ linhas de parsing que se tornam desnecessarias.
 - `from module import Name` (sem `import *`)
 - `Optional[X]` preterido por `X | None` (PEP 604)
 
-## Nao escopo
+## Nao escopo (itens resolvidos posteriormente)
 
-- Remocao de `llm_util.py` e `ollama_util.py` (deferido)
-- Correcao de `truncate_output` com `max_lines` (deferido)
-- `kollzshd_pi.py` tambem troca `def log_debug` local por
-  `from kollzshd_logging import log_debug` (sem risco de dependencia
-  circular: `kollzshd_logging.py` nao importa de `kollzshd_pi.py`)
+- Remocao de `llm_util.py` e `ollama_util.py` — **RESOLVIDO** em `2026-06-05-cleanup` (Missao 1)
+- Correcao de `truncate_output` com `max_lines` — **RESOLVIDO** em `2026-06-05-cleanup` (Missao 2)
+- `is_readonly()` dead code — **RESOLVIDO** em `2026-06-05-cleanup` (Missao 2)
+- `build_deep_search_prompt()` dead code — **RESOLVIDO** em `2026-06-05-cleanup` (Missao 3)

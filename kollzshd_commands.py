@@ -4,7 +4,7 @@
 Fornece funções para:
 - Validar segurança de comandos shell (whitelist read-only vs destrutivos)
 - Executar comandos em um subprocesso bash persistente via protocolo de marcadores
-- Truncar output longo (sanduíche: top 20 + bottom 20 linhas)
+- Truncar output longo (sanduíche: top N + bottom N linhas (proporcional a max_lines))
 - Parsear e validar listas de comandos vindas de respostas da LLM
 
 O daemon mantém um processo bash persistente. Cada comando é enviado com
@@ -13,7 +13,6 @@ marcadores ``__KSEP__`` e ``__KEND__`` para isolar stdout e CWD do resultado.
 
 import ast
 import json
-import os
 import re
 import shlex
 import subprocess
@@ -42,31 +41,7 @@ DESTRUCTIVE_COMMANDS: set[str] = {
 }
 
 
-def is_readonly(command: str) -> bool:
-    """Verifica se um comando é seguro para executar sem confirmação.
 
-    Analisa cada token do comando (tratando quotes com shlex) e verifica
-    se contém apenas comandos da whitelist. Retorna False se encontrar
-    qualquer comando destrutivo ou redirect (``>``, ``>>``).
-
-    Args:
-        command: Comando shell a ser verificado.
-
-    Returns:
-        True se o comando contém apenas comandos read-only.
-    """
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        # Fallback para shlex em input malformado (quotes não fechadas)
-        tokens = command.split()
-    has_readonly = False
-    for t in tokens:
-        if t in DESTRUCTIVE_COMMANDS or t in (">", ">>"):
-            return False
-        if t in READONLY_COMMANDS:
-            has_readonly = True
-    return has_readonly
 
 
 def validate_command_safety(command: str) -> Tuple[bool, str]:
@@ -161,28 +136,31 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
     return True, "Command is safe"
 
 
-def truncate_output(lines: List[str], max_lines: int = 120) -> List[str]:
-    """Trunca output usando método sanduíche: top 60 + bottom 60.
+def truncate_output(lines: list[str], max_lines: int = 120) -> list[str]:
+    """Trunca output usando método sanduíche: top N + bottom N.
 
     Quando o output excede ``max_lines``, mantém as primeiras e últimas
-    60 linhas, inserindo um marcador indicando quantas foram omitidas.
-    Isso evita que outputs gigantes estourem o contexto da LLM.
+    ``max_lines // 2`` linhas, inserindo um marcador indicando quantas
+    foram omitidas. Evita que outputs gigantes estourem o contexto da LLM.
 
     Args:
         lines: Lista de linhas de output.
-        max_lines: Limite máximo de linhas (padrão 120).
+        max_lines: Número máximo de linhas no output final.
+                   Metade vai para o topo, metade para a base.
+                   Mínimo 2 (para exibir pelo menos 1 top + 1 bottom).
 
     Returns:
-        Lista truncada com marcador de omission no meio.
+        Lista truncada com marcador de omissão no meio.
     """
+    if max_lines < 2:
+        max_lines = 2
     if len(lines) <= max_lines:
         return lines
-    top = 60
-    bottom = 60
-    omitted = len(lines) - top - bottom
-    return (lines[:top]
+    half = max_lines // 2
+    omitted = len(lines) - 2 * half
+    return (lines[:half]
             + [f"... ({omitted} lines omitted) ..."]
-            + lines[-bottom:])
+            + lines[-half:])
 
 
 def execute_command(
@@ -314,4 +292,5 @@ if __name__ == '__main__':
         sys.exit(1)
 
     user_query = sys.argv[1]
-    print(f"is_readonly test: {is_readonly(user_query)}")
+    valid, reason = validate_command_safety(user_query)
+    print(f"Safety check: {'SAFE' if valid else 'BLOCKED'} — {reason}")
