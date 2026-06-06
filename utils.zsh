@@ -68,13 +68,3 @@ check_llm_running() {
     return 0
 }
 
-# Check if kollzsh daemon is running
-check_daemon_running() {
-    if [ -f /tmp/kollzshd.pid ]; then
-        local pid=$(cat /tmp/kollzshd.pid)
-        if kill -0 "$pid" 2>/dev/null; then
-            return 0
-        fi
-    fi
-    return 1
-}

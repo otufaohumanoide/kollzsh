@@ -14,6 +14,7 @@ import ast
 import json
 import os
 import re
+import time
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
@@ -194,28 +195,35 @@ def call_llm(payload: Dict[str, Any], timeout: int = 120) -> Optional[Dict[str, 
     llm_url = os.getenv('KOLLZSH_URL', 'http://localhost:8080').rstrip('/')
     chat_url = f"{llm_url}/v1/chat/completions"
 
-    log_debug("LLM request to:", chat_url)
-    log_debug("Payload:", payload)
+    for attempt in range(3):
+        log_debug(f"LLM request to: {chat_url} (attempt {attempt + 1}/3)")
+        log_debug("Payload:", payload)
 
-    try:
-        req = urllib.request.Request(
-            chat_url,
-            data=json.dumps(payload).encode('utf-8'),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            response_data = json.loads(resp.read().decode('utf-8'))
+        try:
+            req = urllib.request.Request(
+                chat_url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                response_data = json.loads(resp.read().decode('utf-8'))
 
-        log_debug("LLM response:", response_data)
-        return response_data
+            log_debug("LLM response:", response_data)
+            return response_data
 
-    except urllib.error.HTTPError as e:
-        log_debug(f"HTTP error: {e.code} {e.reason}", e.read().decode('utf-8', errors='replace'))
-        return None
-    except urllib.error.URLError as e:
-        log_debug(f"Connection error: {e.reason}")
-        return None
-    except Exception as e:
-        log_debug(f"Error calling LLM: {str(e)}")
-        return None
+        except urllib.error.HTTPError as e:
+            log_debug(f"HTTP error: {e.code} {e.reason}", e.read().decode('utf-8', errors='replace'))
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            return None
+        except urllib.error.URLError as e:
+            log_debug(f"Connection error: {e.reason}")
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            return None
+        except Exception as e:
+            log_debug(f"Error calling LLM: {str(e)}")
+            return None

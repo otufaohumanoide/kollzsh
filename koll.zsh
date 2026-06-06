@@ -2,8 +2,6 @@
 (( ! ${+KOLLZSH_HOTKEY} )) && typeset -g KOLLZSH_HOTKEY='^o'
 # default llm model
 (( ! ${+KOLLZSH_MODEL} )) && typeset -g KOLLZSH_MODEL='unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL'
-# default response number as 5
-(( ! ${+KOLLZSH_COMMAND_COUNT} )) && typeset -g KOLLZSH_COMMAND_COUNT='5'
 # default llm server host
 (( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:8080'
 # daemon socket path
@@ -52,12 +50,8 @@ ensure_daemon_running() {
   if [ -f /tmp/kollzshd.pid ]; then
     local pid=$(cat /tmp/kollzshd.pid)
     if kill -0 "$pid" 2>/dev/null; then
-      # Check if daemon code is newer than PID file (code changed)
-      if [ "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" -nt /tmp/kollzshd.pid ] || \
-         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_pi.py" -nt /tmp/kollzshd.pid ] || \
-         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_commands.py" -nt /tmp/kollzshd.pid ] || \
-         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_llm.py" -nt /tmp/kollzshd.pid ] || \
-         [ "${KOLLZSH_PLUGIN_DIR}/kollzshd_logging.py" -nt /tmp/kollzshd.pid ]; then
+      # Check if any .py file is newer than PID file (code changed)
+      if [ -n "$(find "${KOLLZSH_PLUGIN_DIR}" -maxdepth 1 -name '*.py' -newer /tmp/kollzshd.pid)" ]; then
         log_debug "Daemon code changed, restarting"
         kill "$pid" 2>/dev/null
         rm -f /tmp/kollzshd.pid /tmp/kollzshd.sock

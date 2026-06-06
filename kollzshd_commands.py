@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
-"""Módulo de validação e execução de comandos para o daemon kollzsh.
+"""Validação e parsing de comandos para o daemon kollzsh.
 
 Fornece funções para:
 - Validar segurança de comandos shell (whitelist read-only vs destrutivos)
-- Executar comandos em um subprocesso bash persistente via protocolo de marcadores
-- Truncar output longo (sanduíche: top N + bottom N linhas (proporcional a max_lines))
+- Truncar output longo (sanduíche: top N + bottom N linhas)
 - Parsear e validar listas de comandos vindas de respostas da LLM
 
-O daemon mantém um processo bash persistente. Cada comando é enviado com
-marcadores ``__KSEP__`` e ``__KEND__`` para isolar stdout e CWD do resultado.
+A execução dos comandos é feita pelo ``shell_manager.ShellManager``.
 """
 
 import ast
 import json
 import re
 import shlex
-import subprocess
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from kollzshd_logging import log_debug
 
@@ -125,8 +122,6 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
         'rm': ['-rf', '-r', '-f', '-fr'],
         'dd': ['of=', 'if='],
         'mkfs': [],
-        'chmod': ['-R'],
-        'chown': ['-R'],
     }
     if first_token in dangerous_flags:
         for flag in dangerous_flags[first_token]:
@@ -161,86 +156,6 @@ def truncate_output(lines: list[str], max_lines: int = 120) -> list[str]:
     return (lines[:half]
             + [f"... ({omitted} lines omitted) ..."]
             + lines[-half:])
-
-
-def execute_command(
-    command: str,
-    shell_proc: subprocess.Popen,
-    timeout: int = 30
-) -> Tuple[bool, Optional[str], Optional[str]]:
-    """Executa um comando no shell persistente e captura output + CWD.
-
-    Usa o protocolo de marcadores para isolar o output do comando da
-    saída do ``pwd``:
-
-    1. Envia ``{command}; echo '__KSEP__'; pwd; echo '__KEND__'`` no stdin
-    2. Lê stdout até ``__KEND__``
-    3. Tudo antes de ``__KSEP__`` é output do comando
-    4. Tudo depois é o CWD atualizado
-
-    Args:
-        command: Comando shell a executar.
-        shell_proc: Processo bash persistente (subprocess.Popen).
-        timeout: Timeout em segundos (não implementado no protocolo de marcadores).
-
-    Returns:
-        Tupla ``(success, output, new_cwd)``:
-        - success: True se o comando foi executado com sucesso
-        - output: Output truncado do comando (ou mensagem de erro)
-        - new_cwd: Diretório de trabalho atualizado (ou None se não mudou)
-    """
-    is_safe, reason = validate_command_safety(command)
-    if not is_safe:
-        log_debug(f"Command rejected: {reason}", command)
-        return False, f"Command rejected: {reason}", None
-
-    log_debug(f"Executing command: {command}")
-
-    # O marcador __KSEP__ separa output do comando da saída do pwd
-    sentinel = f"{command}; echo '__KSEP__'; pwd; echo '__KEND__'"
-
-    try:
-        shell_proc.stdin.write(sentinel + '\n')
-        shell_proc.stdin.flush()
-    except (BrokenPipeError, OSError) as e:
-        log_debug(f"Error writing to shell stdin: {e}")
-        return False, f"[LLM GEROU] {command}\n[ERRO] Shell pipe error: {e}", None
-
-    output_lines: List[str] = []
-    new_cwd: Optional[str] = None
-    found_sep = False
-
-    try:
-        while True:
-            line = shell_proc.stdout.readline()
-            if not line:
-                log_debug("Shell stdout closed unexpectedly")
-                return False, f"[LLM GEROU] {command}\n[ERRO] Shell process exited", None
-
-            line_stripped = line.rstrip('\n')
-
-            # Fim do output — extrai CWD e retorna
-            if line_stripped == '__KEND__':
-                break
-
-            # Separador — a partir daqui é a saída do pwd
-            if line_stripped == '__KSEP__':
-                found_sep = True
-                continue
-
-            if not found_sep:
-                output_lines.append(line_stripped)
-            else:
-                new_cwd = line_stripped
-    except Exception as e:
-        log_debug(f"Error reading shell output: {e}")
-        return False, f"Shell read error: {e}", None
-
-    if new_cwd:
-        log_debug(f"CWD updated to: {new_cwd}")
-
-    truncated = truncate_output(output_lines)
-    return True, '\n'.join(truncated), new_cwd
 
 
 def parse_and_validate_commands(content: str) -> List[Tuple[str, bool, str]]:

@@ -33,6 +33,11 @@ def _send_query(sock_path: str, query: str, mode: str) -> str:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(sock_path)
+    except ConnectionRefusedError:
+        print("Error: kollzsh daemon is not running.", file=sys.stderr)
+        sock.close()
+        sys.exit(1)
+    try:
         sock.sendall(payload.encode() + b"\n")
         sock.shutdown(socket.SHUT_WR)
         data = b""
@@ -69,15 +74,6 @@ def _render_event(event: dict) -> str:
                 sep = "\u2500" * 38
                 lines.append(f"\u2500\u2500 Round {round_num}/2 {sep}")
             lines.append(f"  [THINK]  {event.get('msg', '')}")
-    elif event_type == "cmd":
-        lines.append(f"  [CMD]    {event.get('cmd', '')}")
-    elif event_type == "out":
-        for line in event.get("lines", []):
-            lines.append(f"  [OUT]      {line}")
-    elif event_type == "read":
-        lines.append(f"  [READ]   Lendo {event.get('file', '')}...")
-    elif event_type == "result":
-        lines.extend(event.get("lines", []))
     elif event_type == "error":
         lines.append(f"  [ERRO]   {event.get('msg', '')}")
 
@@ -97,6 +93,10 @@ def _stream_query(sock_path: str, query: str) -> None:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(sock_path)
+    except ConnectionRefusedError:
+        print("Error: kollzsh daemon is not running.", file=sys.stderr)
+        sys.exit(1)
+    try:
         payload = json.dumps({"query": query, "mode": "deep"})
         sock.sendall(payload.encode() + b"\n")
         sock.settimeout(300.0)
@@ -136,7 +136,7 @@ def _stream_query(sock_path: str, query: str) -> None:
                     print(rendered, flush=True)
 
     except (BrokenPipeError, OSError) as exc:
-        print(f"[busca profunda] Conexao perdida: {exc}", flush=True)
+        print(f"[kollzsh] Connection lost: {exc}", flush=True)
     finally:
         try:
             sock.close()
