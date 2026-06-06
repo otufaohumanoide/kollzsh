@@ -1,6 +1,5 @@
 #!/usr/bin/env zsh
 
-# Function to detect the operating system
 detect_os() {
     case "$(uname -s)" in
         Linux*)     echo "linux";;
@@ -11,7 +10,6 @@ detect_os() {
     esac
 }
 
-# Function to get OS-specific package manager command
 get_package_manager_install_cmd() {
     local os=$(detect_os)
     case "$os" in
@@ -41,11 +39,9 @@ get_package_manager_install_cmd() {
     esac
 }
 
-# Function to check if a command exists and suggest installation
 check_command() {
     local cmd="$1"
-    local package_name="${2:-$1}"  # Use first argument as package name if second is not provided
-    
+    local package_name="${2:-$1}"
     if ! command -v "$cmd" &> /dev/null; then
         local install_cmd=$(get_package_manager_install_cmd)
         if [ "$install_cmd" = "unknown" ]; then
@@ -57,14 +53,3 @@ check_command() {
     fi
     return 0
 }
-
-# Function to check if LLM server is running
-check_llm_running() {
-    local health_url="${KOLLZSH_URL}/v1/models"
-    if ! curl -sf "$health_url" > /dev/null 2>&1; then
-        echo "🚨 LLM server not running at ${KOLLZSH_URL}!"
-        return 1
-    fi
-    return 0
-}
-
