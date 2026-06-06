@@ -77,8 +77,7 @@ def _render_event(event: dict) -> str:
     elif event_type == "read":
         lines.append(f"  [READ]   Lendo {event.get('file', '')}...")
     elif event_type == "result":
-        for line in event.get("lines", []):
-            lines.append(f"  [DONE]   {line}")
+        lines.extend(event.get("lines", []))
     elif event_type == "error":
         lines.append(f"  [ERRO]   {event.get('msg', '')}")
 

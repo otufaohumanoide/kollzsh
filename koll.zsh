@@ -127,21 +127,9 @@ fzf_kollzsh_deep() {
 
   ensure_daemon_running
 
-  local response
-  response=$(stream_from_daemon "$user_query")
-
-  if [ -z "$response" ]; then
-    zle reset-prompt
-    return
-  fi
-
-  local lines
-  lines=$(echo "$response" | python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" parse-lines)
-
-  if [ -n "$lines" ]; then
-    BUFFER="$lines"
-    CURSOR=${#BUFFER}
-  fi
+  # Bibliotecario: progresso + resultado vao para stderr.
+  # done event (JSON) e descartado em /dev/null.
+  stream_from_daemon "$user_query" > /dev/null
 
   zle reset-prompt
 }

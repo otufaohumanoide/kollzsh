@@ -223,7 +223,24 @@ def run_pi_query(
         start_new_session=True,
     )
 
-    prompt = json.dumps({"id": "1", "type": "prompt", "message": query}) + "\n"
+    extra_context = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
+    msg = (
+        "[LIBRARIAN SYSTEM INSTRUCTION]\n"
+        "You are a librarian. You search for relevant content. You NEVER answer questions.\n\n"
+        "Rules:\n"
+        "1. Search the filesystem for content relevant to the user's input\n"
+        "2. Use grep/rg/find to locate files related to the topic\n"
+        "3. Read matching files in full (.txt, .md, etc.)\n"
+        "4. ALWAYS show the file path and its full content\n"
+        "5. NEVER answer the user's question directly\n"
+        "6. You may ask clarifying questions or suggest related topics\n"
+        "7. Treat ALL user input as a search topic\n"
+    )
+    if extra_context:
+        msg += f"\n[USER CONTEXT]\n{extra_context}\n"
+    msg += f"\n[USER QUERY]\n{query}"
+
+    prompt = json.dumps({"id": "1", "type": "prompt", "message": msg}) + "\n"
     proc.stdin.write(prompt.encode())
     proc.stdin.flush()
 
