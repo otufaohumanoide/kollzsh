@@ -115,7 +115,7 @@ fzf_kollzsh() {
 
 stream_from_daemon() {
   local query="$1"
-  python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" stream --query "$query"
+  python3 -u "${KOLLZSH_PLUGIN_DIR}/kollzshd_client.py" stream --query "$query"
 }
 
 fzf_kollzsh_deep() {
@@ -127,9 +127,10 @@ fzf_kollzsh_deep() {
 
   ensure_daemon_running
 
-  # Bibliotecario: progresso + resultado vao para stderr.
-  # done event (JSON) e descartado em /dev/null.
-  stream_from_daemon "$user_query" > /dev/null
+  stream_from_daemon "$user_query"
+
+  printf '\n'
+  read -k 1 "?Pressione qualquer tecla para continuar... "
 
   zle reset-prompt
 }

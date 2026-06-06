@@ -85,12 +85,10 @@ def _render_event(event: dict) -> str:
 
 
 def _stream_query(sock_path: str, query: str) -> None:
-    """Streaming de eventos: stderr para progresso, stdout para resultado.
+    """Streaming de eventos para stdout (direto ao terminal do usuario).
 
     Conecta ao daemon em modo streaming, le eventos JSON linha a linha.
-    Eventos de progresso (think, cmd, out, read) vao para stderr para que
-    o usuario veja o andamento. Apenas o evento ``done`` e impresso no
-    stdout, para ser capturado pelo ZSH.
+    Todo output vai para stdout para que o widget ZSH exiba diretamente.
 
     Args:
         sock_path: Caminho do socket Unix.
@@ -101,10 +99,10 @@ def _stream_query(sock_path: str, query: str) -> None:
         sock.connect(sock_path)
         payload = json.dumps({"query": query, "mode": "deep"})
         sock.sendall(payload.encode() + b"\n")
-        sock.shutdown(socket.SHUT_WR)
         sock.settimeout(300.0)
-
         reader = sock.makefile("r")
+        sock.shutdown(socket.SHUT_WR)
+
         for line in reader:
             line = line.strip()
             if not line:
@@ -115,20 +113,21 @@ def _stream_query(sock_path: str, query: str) -> None:
                 continue
 
             if event.get("type") == "done":
-                result = json.dumps(
-                    {"lines": event.get("lines", []), "cwd": event.get("cwd", "")}
-                )
-                print(result)  # stdout -> capturado pelo ZSH
+                lines = event.get("lines", [])
+                if lines:
+                    print(f"\n=== Resultado ({len(lines)} linhas) ===", flush=True)
+                    for l in lines:
+                        print(l, flush=True)
+                else:
+                    print("\n[busca profunda] Nenhum resultado encontrado.", flush=True)
                 break
 
             rendered = _render_event(event)
             if rendered:
-                print(rendered, file=sys.stderr)
+                print(rendered, flush=True)
 
     except (BrokenPipeError, OSError) as exc:
-        print(
-            json.dumps({"lines": [f"Connection lost: {exc}"], "cwd": ""})
-        )
+        print(f"[busca profunda] Conexao perdida: {exc}", flush=True)
     finally:
         try:
             sock.close()

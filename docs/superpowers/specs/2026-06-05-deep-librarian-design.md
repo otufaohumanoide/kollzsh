@@ -31,37 +31,29 @@ O que muda:
 O prompt JSON enviado ao Pi (`{"id": "1", "type": "prompt", "message": query}`)
 deve ser substituído por:
 
+O prompt enviado ao Pi muda de instruções de sistema longas para uma query
+curta e natural, prefixada com o tópico de busca:
+
 ```python
-prompt = json.dumps({
-    "id": "1",
-    "type": "prompt",
-    "message": (
-        f"[SYSTEM] You are a LIBRARIAN. You NEVER answer questions.\n"
-        f"Your ONLY job: search for relevant content in this filesystem.\n"
-        f"Rules:\n"
-        f"1. Use grep/rg/find to locate files related to the search topic\n"
-        f"2. Read matching files in full (.txt, .md, etc.)\n"
-        f"3. Return FILE PATH + FULL CONTENT for every file you find\n"
-        f"4. NEVER answer the user's question directly\n"
-        f"5. You may ask clarifying questions about what they need\n"
-        f"6. You may suggest related topics/keywords\n"
-        f"7. Treat ANY input as a search topic\n\n"
-        f"[SYSTEM CONTEXT] {extra_context}\n\n"
-        f"[USER QUERY] {query}"
-    )
-}).encode()
+librarian_query = (
+    f"Search topic: {query}\n\n"
+    f"Your job: find relevant files in this filesystem and return "
+    f"their paths + full content. NEVER answer questions or explain "
+    f"anything. Only search and return files."
+)
+if extra:
+    librarian_query += f"\n\nUser context: {extra}"
+prompt = json.dumps({"id": "1", "type": "prompt", "message": librarian_query}) + "\n"
 ```
 
-O `extra_context` vem da env `KOLLZSH_SYSTEM_CONTEXT` (mesma do modo navegação),
-permitindo que o usuário customize o comportamento do bibliotecário.
+A instrução é curta e natural (não usa `[LIBRARIAN SYSTEM INSTRUCTION]`), evitando
+confundir o Pi RPC com formato híbrido de system + user message.
 
 ### 2. `koll.zsh` — Widget `fzf_kollzsh_deep`
 
-O evento `done` do daemon é JSON (`{"lines": [...], "cwd": "..."}`) — útil para
-captura programática, mas inviável para leitura direta no terminal. O conteúdo
-já vem formatado pelo Pi através do evento `result`, que é renderizado para
-stderr pelo `kollzshd_client.py`. A solução: **descartar stdout (done JSON)**
-e deixar stderr (progresso + resultado) passar naturalmente.
+Captura stdout (done event JSON) com `$()` para desbloquear o pipe, mas
+descarta o resultado — o conteúdo do bibliotecário já foi para stderr via
+evento `result`. A linha de comando (BUFFER) permanece limpa.
 
 ```zsh
 fzf_kollzsh_deep() {
@@ -73,8 +65,8 @@ fzf_kollzsh_deep() {
 
   ensure_daemon_running
 
-  # Pi envia progresso + resultado para stderr; done JSON vai para /dev/null
-  stream_from_daemon "$user_query" > /dev/null
+  local response
+  response=$(stream_from_daemon "$user_query")
 
   zle reset-prompt
 }
@@ -83,21 +75,14 @@ fzf_kollzsh_deep() {
 Nota: o parser de linhas (`parse-lines`) e a lógica de `BUFFER="$lines"` são
 removidos — o conteúdo do bibliotecário é apenas para leitura no terminal.
 
-### 3. `kollzshd_client.py` — Ajuste na renderização
+### 3. `kollzshd_client.py` — Erros de conexão vão para stderr
 
-O evento `result` (que carrega o conteúdo do bibliotecário) é renderizado com
-prefixo `[DONE]` — herança do design anterior onde o resultado ia para o BUFFER.
-Para leitura no terminal, o prefixo é ruído. Mudar de `[DONE]` para nada (linhas
-puras):
+O evento `result` (que carrega o conteúdo do bibliotecário) é renderizado sem
+prefixo `[DONE]`, para leitura limpa no terminal.
 
-```python
-elif event_type == "result":
-    lines.extend(event.get("lines", []))
-```
-
-O `stream` subcommand continua inalterado no resto — eventos de progresso
-(`think`, `cmd`, `out`, `read`) vão para stderr, e o evento `done` vai para
-stdout (agora descartado via `>/dev/null` no ZSH).
+Erros de conexão (`except (BrokenPipeError, OSError)`) agora imprimem no stderr
+em vez de stdout. Isso garante que, mesmo quando o widget captura stdout com
+`$()`, os erros apareçam no terminal.
 
 ### 4. `AGENTS.md` — Atualizar descrição
 
@@ -106,13 +91,14 @@ Deep mode agora é "librarian search" em vez de "deep search".
 ## Fluxo Completo
 
 1. Usuário digita algo no terminal e aperta Ctrl+F
-2. `fzf_kollzsh_deep` pega o BUFFER, chama `stream_from_daemon "$query" > /dev/null`
-3. Daemon repassa para Pi com o novo system prompt de bibliotecário
+2. `fzf_kollzsh_deep` pega o BUFFER, chama `stream_from_daemon` com `$()`
+3. Daemon repassa para Pi com query prefixada como tópico de busca
 4. Pi busca arquivos (grep/rg/find), lê conteúdo, formata resultado
 5. Eventos de progresso (`think`, `cmd`, `out`, `read`) → stderr
 6. Evento `result` (conteúdo do Pi) → renderizado sem prefixo → stderr
-7. Evento `done` (JSON) → descartado em `/dev/null`
+7. Evento `done` (JSON) → stdout → capturado em `$response` (descartado)
 8. Linha de comando (BUFFER) permanece limpa e inalterada
+9. Erros de conexão vão para stderr (sempre visíveis)
 
 ## Exemplo de Saída (stderr)
 

@@ -173,14 +173,28 @@ def _ensure_models_json(agent_dir: str, url: str, model: str) -> str:
     return models_path
 
 
-def ensure_pi_ready(plugin_dir: str, agent_dir: str, url: str, model: str) -> str:
-    node_path = _ensure_node(plugin_dir)
-    _ensure_pi_build(plugin_dir)
-    _ensure_models_json(agent_dir, url, model)
-    return node_path
-
-
 EventCallback = Callable[..., None]
+
+
+def ensure_pi_ready(
+    plugin_dir: str,
+    agent_dir: str,
+    url: str,
+    model: str,
+    event_callback: Optional[EventCallback] = None,
+) -> str:
+    if event_callback:
+        event_callback("think", status="start", msg="Checking Node.js...")
+    node_path = _ensure_node(plugin_dir)
+    if event_callback:
+        event_callback("think", status="start", msg="Checking Pi build...")
+    _ensure_pi_build(plugin_dir)
+    if event_callback:
+        event_callback("think", status="start", msg="Setting up models...")
+    _ensure_models_json(agent_dir, url, model)
+    if event_callback:
+        event_callback("think", status="start", msg="Pi ready.")
+    return node_path
 
 
 def run_pi_query(
@@ -194,7 +208,7 @@ def run_pi_query(
     context_level: str = "level3",
     event_callback: Optional[EventCallback] = None,
 ) -> List[str]:
-    node_path = ensure_pi_ready(plugin_dir, agent_dir, url, model)
+    node_path = ensure_pi_ready(plugin_dir, agent_dir, url, model, event_callback)
     package_dir = os.path.join(plugin_dir, "pi-mono", "packages", "coding-agent")
     cli_path = os.path.join(package_dir, "dist", "cli.js")
 
@@ -223,24 +237,16 @@ def run_pi_query(
         start_new_session=True,
     )
 
-    extra_context = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
-    msg = (
-        "[LIBRARIAN SYSTEM INSTRUCTION]\n"
-        "You are a librarian. You search for relevant content. You NEVER answer questions.\n\n"
-        "Rules:\n"
-        "1. Search the filesystem for content relevant to the user's input\n"
-        "2. Use grep/rg/find to locate files related to the topic\n"
-        "3. Read matching files in full (.txt, .md, etc.)\n"
-        "4. ALWAYS show the file path and its full content\n"
-        "5. NEVER answer the user's question directly\n"
-        "6. You may ask clarifying questions or suggest related topics\n"
-        "7. Treat ALL user input as a search topic\n"
+    extra = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
+    librarian_query = (
+        f"Search topic: {query}\n\n"
+        f"Your job: find relevant files in this filesystem and return "
+        f"their paths + full content. NEVER answer questions or explain "
+        f"anything. Only search and return files."
     )
-    if extra_context:
-        msg += f"\n[USER CONTEXT]\n{extra_context}\n"
-    msg += f"\n[USER QUERY]\n{query}"
-
-    prompt = json.dumps({"id": "1", "type": "prompt", "message": msg}) + "\n"
+    if extra:
+        librarian_query += f"\n\nUser context: {extra}"
+    prompt = json.dumps({"id": "1", "type": "prompt", "message": librarian_query}) + "\n"
     proc.stdin.write(prompt.encode())
     proc.stdin.flush()
 
@@ -295,6 +301,7 @@ def run_pi_query(
                 continue
 
             if event_type == "agent_end":
+                log_debug("Pi agent_end received")
                 if event_callback:
                     event_callback("think", status="end")
                 break
@@ -318,6 +325,7 @@ def run_pi_query(
         log_debug("Pi returned empty result, checking stderr")
         result = "[Deep search error] Check /tmp/kollzsh_debug.log for details"
     elif event_callback:
+        log_debug(f"Pi completed: {len(result)} chars, {len(result.splitlines())} lines")
         event_callback("result", lines=result.split("\n"))
 
     return result.split("\n")
