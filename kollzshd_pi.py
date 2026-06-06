@@ -251,6 +251,7 @@ def run_pi_query(
     proc.stdin.flush()
 
     text_parts: List[str] = []
+    tool_outputs: List[str] = []
     seen_turns = 0
     sent_abort = False
 
@@ -300,6 +301,31 @@ def run_pi_query(
                     text_parts.append(delta)
                 continue
 
+            if event_type == "tool_execution_end":
+                tool_name = event.get("toolName", "?")
+                result = event.get("result", "")
+                result_str = ""
+                if isinstance(result, dict):
+                    content = result.get("content", [])
+                    if isinstance(content, list) and content:
+                        first = content[0]
+                        if isinstance(first, dict):
+                            result_str = first.get("text", "") or first.get("output", "") or ""
+                    if not result_str:
+                        result_str = result.get("stdout", "") or result.get("output", "") or result.get("text", "") or ""
+                    if not result_str:
+                        result_str = json.dumps(result, indent=2)
+                elif result:
+                    result_str = str(result).strip()
+                if result_str:
+                    tool_outputs.append(f"--- [{tool_name}] ---")
+                    tool_outputs.append(result_str)
+                    tool_outputs.append("")
+                continue
+
+            if event_type == "tool_execution_update":
+                continue
+
             if event_type == "agent_end":
                 log_debug("Pi agent_end received")
                 if event_callback:
@@ -307,7 +333,7 @@ def run_pi_query(
                 break
 
             # Log unknown event types for debugging
-            if event_type not in ("tool_use", "tool_result"):
+            if event_type not in ("tool_use", "tool_result", "tool_execution_start", "message_start", "message_end", "turn_end", "provider_request_context"):
                 log_debug(f"Pi unknown event: {event_type}")
     finally:
         try:
@@ -317,6 +343,12 @@ def run_pi_query(
             pass
 
     result = "".join(text_parts).strip()
+    if tool_outputs:
+        tool_block = "\n".join(tool_outputs).strip()
+        if result:
+            result = result + "\n\n" + tool_block
+        else:
+            result = tool_block
     stderr_text = proc.stderr.read().decode() if proc.stderr else ""
     if stderr_text:
         log_debug("Pi stderr:", stderr_text[:500])
@@ -326,6 +358,5 @@ def run_pi_query(
         result = "[Deep search error] Check /tmp/kollzsh_debug.log for details"
     elif event_callback:
         log_debug(f"Pi completed: {len(result)} chars, {len(result.splitlines())} lines")
-        event_callback("result", lines=result.split("\n"))
 
     return result.split("\n")

@@ -100,31 +100,40 @@ def _stream_query(sock_path: str, query: str) -> None:
         payload = json.dumps({"query": query, "mode": "deep"})
         sock.sendall(payload.encode() + b"\n")
         sock.settimeout(300.0)
-        reader = sock.makefile("r")
         sock.shutdown(socket.SHUT_WR)
 
-        for line in reader:
-            line = line.strip()
-            if not line:
-                continue
+        buf = ""
+        while True:
             try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            if event.get("type") == "done":
-                lines = event.get("lines", [])
-                if lines:
-                    print(f"\n=== Resultado ({len(lines)} linhas) ===", flush=True)
-                    for l in lines:
-                        print(l, flush=True)
-                else:
-                    print("\n[busca profunda] Nenhum resultado encontrado.", flush=True)
+                data = sock.recv(65536)
+            except socket.timeout:
                 break
+            if not data:
+                break
+            buf += data.decode()
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-            rendered = _render_event(event)
-            if rendered:
-                print(rendered, flush=True)
+                if event.get("type") == "done":
+                    lines = event.get("lines", [])
+                    if lines:
+                        print(f"\n=== Resultado ({len(lines)} linhas) ===", flush=True)
+                        for l in lines:
+                            print(l, flush=True)
+                    else:
+                        print("\n[busca profunda] Nenhum resultado encontrado.", flush=True)
+                    return
+
+                rendered = _render_event(event)
+                if rendered:
+                    print(rendered, flush=True)
 
     except (BrokenPipeError, OSError) as exc:
         print(f"[busca profunda] Conexao perdida: {exc}", flush=True)
