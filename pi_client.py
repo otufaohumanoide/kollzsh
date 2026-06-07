@@ -90,10 +90,14 @@ def _build_librarian_prompt(query: str, extra: str) -> str:
         f"6. If searching for agravantes, aggravating circumstances, or special conditions, search for those terms explicitly\n"
         f"7. If the query involves multiple crimes or concurrence (concurso), search for each crime separately\n\n"
         f"OUTPUT:\n"
-        f"Return the FULL content of ALL matching atoms found.\n"
-        f"Include the atom file path for reference.\n"
+        f"After reading each atom .md file, output its FULL CONTENT INLINE in this exact format:\n\n"
+        f"=== ATOM: <path to file> ===\n"
+        f"<complete content of the file copied verbatim>\n"
+        f"=== FIM ATOM ===\n\n"
+        f"NEVER describe or summarize atoms — always reproduce the full content of every atom you read.\n"
+        f"Include the path in each === ATOM line.\n"
         f"STOP as soon as you find clear answers for ALL decomposed terms.\n"
-        f"AVOID: raw file listings without reading, directory dumps, or extra explanation."
+        f"AVOID: raw file listings, directory dumps, or explanations without atom content."
     )
     if query.strip():
         prompt += f"\n\nUSER QUERY:\n{query}"
@@ -238,8 +242,12 @@ def run_pi_query(
         _pi_proc = None
 
     result = "".join(text_parts).strip()
-    if not result and tool_outputs:
-        result = "\n".join(tool_outputs).strip()
+    if tool_outputs:
+        outputs_text = "\n".join(tool_outputs).strip()
+        if result:
+            result += "\n\n" + outputs_text
+        else:
+            result = outputs_text
     stderr_text = proc.stderr.read() if proc.stderr else ""
     if stderr_text:
         log_debug("Pi stderr:", stderr_text[:500])
