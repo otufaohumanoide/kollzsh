@@ -44,17 +44,17 @@ def _ensure_pi_running(
     if not os.path.exists(agent_config):
         if event_callback:
             event_callback("think", status="start", msg="Setting up Pi agent...")
-        ensure_pi_ready(plugin_dir, agent_dir, url, model, event_callback)
+    node_path = ensure_pi_ready(plugin_dir, agent_dir, url, model, event_callback)
 
-    models_path = os.path.join(agent_dir, "models.json")
     _pi_proc = subprocess.Popen(
         [
-            "node", "dist/index.js",
+            node_path, "packages/coding-agent/dist/cli.js",
             "--mode", "rpc",
+            "--provider", "local",
+            "--model", model,
             "--tools", "read,bash",
             "--no-session",
-            "--config", agent_dir,
-            "--models", models_path,
+            "--context-management-level", context_level,
         ],
         cwd=os.path.join(plugin_dir, "pi-mono"),
         stdin=subprocess.PIPE,
@@ -151,6 +151,20 @@ def run_pi_query(
                 delta = assistant.get("delta", "")
                 if delta:
                     text_parts.append(delta)
+                continue
+
+            if event_type == "message_end":
+                assistant = event.get("assistantMessageEvent", {})
+                msg = assistant.get("message", {})
+                raw = msg.get("content", "") or assistant.get("content", "") or event.get("content", "")
+                if isinstance(raw, list):
+                    texts = []
+                    for item in raw:
+                        if isinstance(item, dict) and item.get("type") == "text":
+                            texts.append(item.get("text", ""))
+                    raw = " ".join(texts)
+                if raw and raw != "None":
+                    text_parts.append(str(raw))
                 continue
 
             if event_type == "tool_execution_end":

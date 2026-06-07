@@ -34,7 +34,7 @@ ensure_daemon_running() {
 
     rm -f "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}"
     print -Pn "  %F{blue}[kollzsh]%f Starting daemon... " >&2
-    python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" &
+    python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" > /dev/null 2>&1 &
     disown
     local waited=0
     while [ ! -S "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}" ] && [ $waited -lt 50 ]; do

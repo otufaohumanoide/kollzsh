@@ -102,6 +102,9 @@ class DaemonServer:
             query = request.get("query", "")
             mode = request.get("mode", "navigation")
             log_debug(f"Request from {addr}: mode={mode}, query={query}")
+            if mode == "deep":
+                self.handle_request_streaming(request, conn)
+                return
             result = self.router.run_agent_loop(query, mode)
             response = json.dumps({"lines": result, "cwd": self.shell.cwd})
             try:
