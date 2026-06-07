@@ -32,7 +32,11 @@ check_fzf_installed() {
 }
 
 validate_required() {
+  check_command "fzf" || return 1
+  check_command "python3" || return 1
   check_llm_running || return 1
-  check_daemon_running || return 1
-  check_fzf_installed || return 1
+  if ! command curl -s "${KOLLZSH_URL:-http://localhost:8080}/v1/models" | command grep -q "$KOLLZSH_MODEL" 2>/dev/null; then
+    print -P "  %F{red}[kollzsh]%f Model $KOLLZSH_MODEL not found on the LLM server" >&2
+    return 1
+  fi
 }
