@@ -22,6 +22,7 @@ class DaemonServer:
         self.inactivity_timeout = inactivity_timeout
         self.last_activity: float = time.time()
         self.running: bool = False
+        self.server: socket.socket | None = None
         self.shell = ShellManager()
         self.router = AgentRouter(self.shell)
 
@@ -68,6 +69,57 @@ class DaemonServer:
         log_debug("Response:", result)
         return json.dumps(result)
 
+    def _check_inactivity(self) -> None:
+        elapsed = time.time() - self.last_activity
+        if elapsed > self.inactivity_timeout:
+            log_debug(f"Inactivity timeout ({self.inactivity_timeout}s), shutting down")
+            self.running = False
+
+    def _accept_loop(self) -> None:
+        while self.running:
+            try:
+                conn, addr = self.server.accept()
+            except socket.timeout:
+                self._check_inactivity()
+                continue
+            except OSError as exc:
+                log_debug(f"Accept error: {exc}")
+                continue
+            self._handle_client(conn, str(addr))
+
+    def _handle_client(self, conn: socket.socket, addr: str) -> None:
+        try:
+            data = b""
+            while True:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+            raw = data.decode().strip()
+            if not raw:
+                return
+            request = json.loads(raw)
+            query = request.get("query", "")
+            mode = request.get("mode", "navigation")
+            log_debug(f"Request from {addr}: mode={mode}, query={query}")
+            result = self.router.run_agent_loop(query, mode)
+            response = json.dumps({"lines": result, "cwd": self.shell.cwd})
+            try:
+                conn.sendall(response.encode())
+            except (BrokenPipeError, OSError) as exc:
+                log_debug(f"Send error to {addr}: {exc}")
+        except (json.JSONDecodeError, Exception) as exc:
+            log_debug(f"Error handling client {addr}: {exc}")
+            try:
+                conn.sendall(json.dumps({"error": str(exc)}).encode())
+            except OSError:
+                pass
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+
     def cleanup(self) -> None:
         log_debug("Cleaning up daemon")
         self.running = False
@@ -88,58 +140,19 @@ class DaemonServer:
         self.shell.start_shell()
         self.running = True
 
-        server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             os.unlink(self.socket_path)
         except OSError:
             pass
 
-        server_sock.bind(self.socket_path)
-        server_sock.listen(5)
-        server_sock.settimeout(1.0)
+        self.server.bind(self.socket_path)
+        self.server.listen(5)
+        self.server.settimeout(1.0)
         log_debug(f"Listening on {self.socket_path}")
 
         try:
-            while self.running:
-                elapsed = time.time() - self.last_activity
-                if elapsed > self.inactivity_timeout:
-                    log_debug(f"Inactivity timeout ({self.inactivity_timeout}s), shutting down")
-                    break
-
-                try:
-                    conn, _ = server_sock.accept()
-                except socket.timeout:
-                    continue
-                except OSError:
-                    break
-
-                try:
-                    data = b""
-                    while True:
-                        chunk = conn.recv(4096)
-                        if not chunk:
-                            break
-                        data += chunk
-                        if b'\n' in data:
-                            break
-
-                    if data:
-                        request_data = data.decode('utf-8').strip()
-                        try:
-                            request = json.loads(request_data)
-                        except json.JSONDecodeError:
-                            conn.close()
-                            continue
-
-                        if request.get("mode") == "deep":
-                            self.handle_request_streaming(request, conn)
-                        else:
-                            response = self.handle_request(request)
-                            conn.sendall((response + "\n").encode("utf-8"))
-                except Exception as e:
-                    log_debug(f"Error handling connection: {e}")
-                finally:
-                    conn.close()
+            self._accept_loop()
         finally:
-            server_sock.close()
+            self.server.close()
             self.cleanup()
