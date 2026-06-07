@@ -80,7 +80,7 @@ class AgentRouter:
             "KOLLZSH_MODEL",
             "unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL",
         )
-        max_turns = int(os.environ.get("KOLLZSH_PI_MAX_TURNS", "20"))
+        max_turns = int(os.environ.get("KOLLZSH_PI_MAX_TURNS", "6"))
         context_level = os.environ.get("KOLLZSH_PI_CONTEXT_LEVEL", "level3")
 
         try:

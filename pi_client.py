@@ -73,7 +73,7 @@ def run_pi_query(
     agent_dir: str,
     url: str,
     model: str,
-    max_turns: int = 20,
+    max_turns: int = 6,
     context_level: str = "level3",
     event_callback: Optional[EventCallback] = None,
 ) -> List[str]:
@@ -86,11 +86,14 @@ def run_pi_query(
         return [f"Pi setup error: {exc}"]
 
     extra = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
+    kb_path = os.path.join(os.path.expanduser("~/.pi/agent/extensions/estagiario-data"), "atomos")
     librarian_query = (
         f"Search topic: {query}\n\n"
-        f"Your job: find relevant files in this filesystem and return "
-        f"their paths + full content. NEVER answer questions or explain "
-        f"anything. Only search and return files."
+        f"Find the answer in the knowledge base at {kb_path}\n"
+        f"Use your domain search tools to find the relevant atom(s).\n"
+        f"STOP as soon as you find the answer — do not search further.\n"
+        f"Return ONLY the content of the matching atom(s), nothing else.\n"
+        f"AVOID: raw file listings, directory dumps, or extra explanation."
     )
     if extra:
         librarian_query += f"\n\nUser context: {extra}"
@@ -209,12 +212,8 @@ def run_pi_query(
         _pi_proc = None
 
     result = "".join(text_parts).strip()
-    if tool_outputs:
-        tool_block = "\n".join(tool_outputs).strip()
-        if result:
-            result = result + "\n\n" + tool_block
-        else:
-            result = tool_block
+    if not result and tool_outputs:
+        result = "\n".join(tool_outputs).strip()
     stderr_text = proc.stderr.read() if proc.stderr else ""
     if stderr_text:
         log_debug("Pi stderr:", stderr_text[:500])
