@@ -24,7 +24,7 @@ ensure_daemon_running() {
             if [ -n "$(find "${KOLLZSH_PLUGIN_DIR}" -maxdepth 1 -name '*.py' -newer /tmp/kollzshd.pid)" ]; then
                 log_debug "Daemon code changed, restarting"
                 kill "$pid" 2>/dev/null
-                rm -f /tmp/kollzshd.pid /tmp/kollzshd.sock
+                rm -f /tmp/kollzshd.pid "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}"
                 restart=1
             else
                 return 0
@@ -32,16 +32,20 @@ ensure_daemon_running() {
         fi
     fi
 
-    rm -f /tmp/kollzshd.sock
+    rm -f "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}"
+    print -Pn "  %F{blue}[kollzsh]%f Starting daemon... " >&2
     python3 "${KOLLZSH_PLUGIN_DIR}/kollzshd.py" &
     disown
     local waited=0
-    while [ ! -S "$KOLLZSH_DAEMON_SOCK" ] && [ $waited -lt 50 ]; do
+    while [ ! -S "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}" ] && [ $waited -lt 50 ]; do
         sleep 0.1
         waited=$((waited + 1))
     done
     if [ $waited -ge 50 ]; then
+        print -P "%F{red}TIMEOUT%f (daemon did not create socket)" >&2
         log_debug "Daemon failed to start within 5 seconds"
+    else
+        print -P "%F{green}OK%f" >&2
     fi
 }
 
@@ -50,7 +54,7 @@ _kollzsh_cleanup() {
         local pid=$(cat /tmp/kollzshd.pid)
         kill "$pid" 2>/dev/null
         rm -f /tmp/kollzshd.pid
-        rm -f /tmp/kollzshd.sock
+        rm -f "${KOLLZSH_DAEMON_SOCK:-/tmp/kollzshd.sock}"
     fi
 }
 

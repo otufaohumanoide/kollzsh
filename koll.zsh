@@ -27,6 +27,10 @@ fzf_kollzsh() {
     local result=$(send_to_daemon "$user_query" "navigation")
     if [ -n "$result" ]; then
         result=$(echo "$result" | FZF_DEFAULT_OPTS="--reverse --cycle" fzf)
+        local fzf_exit=$?
+        if [[ $fzf_exit -eq 130 ]]; then
+            print -P "  %F{yellow}[kollzsh]%f Search took too long — try a more specific query" >&2
+        fi
     fi
     if [ -n "$result" ]; then
         BUFFER="$result"
@@ -43,7 +47,7 @@ fzf_kollzsh_deep() {
     ensure_daemon_running
     stream_from_daemon "$user_query"
     printf '\n'
-    read -k 1 "?Pressione qualquer tecla para continuar... "
+    read -k 1 "?Press any key to continue... "
     zle reset-prompt
 }
 
