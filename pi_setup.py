@@ -14,31 +14,27 @@ PI_BRANCH: str = "codex/context-management-ablation"
 EventCallback = Callable[..., None]
 
 
-def _find_node() -> str:
-    nvm_dir = Path(os.environ.get("NVM_DIR", Path.home() / ".nvm"))
-    versions_dir = nvm_dir / "versions" / "node"
-    if versions_dir.is_dir():
-        candidates = sorted(
-            (d for d in versions_dir.iterdir() if d.name.startswith("v")),
-            key=lambda d: tuple(int(x) for x in d.name.lstrip("v").split(".")),
-            reverse=True,
-        )
-        for candidate in candidates:
-            major = int(candidate.name.lstrip("v").split(".")[0])
-            node = candidate / "bin" / "node"
-            if major >= 20 and node.exists():
-                return str(node)
-    node = shutil.which("node")
-    if node:
+def _find_node() -> Optional[str]:
+    """Try to find a Node.js executable >=20."""
+    candidates = []
+    nvm_node = os.path.expanduser("~/.nvm/versions/node/*/bin/node")
+    if os.path.exists(os.path.expanduser("~/.nvm")):
+        import glob
+        candidates.extend(sorted(glob.glob(nvm_node), reverse=True))
+    which_node = shutil.which("node")
+    if which_node:
+        candidates.append(which_node)
+    for candidate in candidates:
         try:
-            ver = subprocess.run([node, "--version"], capture_output=True, text=True, timeout=10)
-            if ver.returncode == 0 and ver.stdout.strip():
-                major = int(ver.stdout.strip().lstrip("v").split(".")[0])
-                if major >= 20:
-                    return node
-        except Exception:
-            pass
-    return ""
+            version = subprocess.check_output(
+                [candidate, "--version"], text=True, stderr=subprocess.DEVNULL
+            ).strip()
+            major = int(version.lstrip("v").split(".")[0])
+            if major >= 20:
+                return candidate
+        except (subprocess.CalledProcessError, OSError, ValueError):
+            continue
+    return None
 
 
 def _ensure_node(plugin_dir: str) -> str:

@@ -1,6 +1,8 @@
+import atexit
 import json
 import os
 import select
+import signal
 import subprocess
 import time
 from typing import Callable, List, Optional
@@ -10,6 +12,58 @@ from pi_setup import ensure_pi_ready
 
 PI_QUERY_TIMEOUT: int = 300
 EventCallback = Callable[..., None]
+
+_pi_proc: "subprocess.Popen[str] | None" = None
+
+
+def _cleanup_pi() -> None:
+    global _pi_proc
+    if _pi_proc is not None and _pi_proc.poll() is None:
+        _pi_proc.terminate()
+        try:
+            _pi_proc.wait(timeout=2)
+        except Exception:
+            _pi_proc.kill()
+        _pi_proc = None
+
+
+atexit.register(_cleanup_pi)
+
+
+def _ensure_pi_running(
+    agent_dir: str, plugin_dir: str,
+    url: str, model: str,
+    context_level: str,
+    event_callback: Optional[EventCallback] = None,
+) -> "subprocess.Popen[str]":
+    global _pi_proc
+    if _pi_proc is not None and _pi_proc.poll() is None:
+        return _pi_proc
+
+    agent_config = os.path.join(agent_dir, "agent.json")
+    if not os.path.exists(agent_config):
+        if event_callback:
+            event_callback("think", status="start", msg="Setting up Pi agent...")
+        ensure_pi_ready(plugin_dir, agent_dir, url, model, event_callback)
+
+    models_path = os.path.join(agent_dir, "models.json")
+    _pi_proc = subprocess.Popen(
+        [
+            "node", "dist/index.js",
+            "--mode", "rpc",
+            "--tools", "read,bash",
+            "--no-session",
+            "--config", agent_dir,
+            "--models", models_path,
+        ],
+        cwd=os.path.join(plugin_dir, "pi-mono"),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    return _pi_proc
 
 
 def run_pi_query(
@@ -23,34 +77,13 @@ def run_pi_query(
     context_level: str = "level3",
     event_callback: Optional[EventCallback] = None,
 ) -> List[str]:
-    node_path = ensure_pi_ready(plugin_dir, agent_dir, url, model, event_callback)
-    package_dir = os.path.join(plugin_dir, "pi-mono", "packages", "coding-agent")
-    cli_path = os.path.join(package_dir, "dist", "cli.js")
-
-    cmd = [
-        node_path,
-        cli_path,
-        "--mode", "rpc",
-        "--provider", "local",
-        "--model", model,
-        "--tools", "read,bash",
-        "--no-session",
-        "--context-management-level", context_level,
-    ]
-
-    log_debug(f"Spawning Pi RPC: {' '.join(cmd)}")
-    env = os.environ.copy()
-    env["PI_CODING_AGENT_DIR"] = agent_dir
-
-    proc = subprocess.Popen(
-        cmd,
-        cwd=cwd,
-        env=env,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
+    global _pi_proc
+    try:
+        proc = _ensure_pi_running(agent_dir, plugin_dir, url, model, context_level, event_callback)
+    except RuntimeError as exc:
+        if event_callback:
+            event_callback("error", msg=str(exc))
+        return [f"Pi setup error: {exc}"]
 
     extra = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
     librarian_query = (
@@ -62,7 +95,7 @@ def run_pi_query(
     if extra:
         librarian_query += f"\n\nUser context: {extra}"
     prompt = json.dumps({"id": "1", "type": "prompt", "message": librarian_query}) + "\n"
-    proc.stdin.write(prompt.encode())
+    proc.stdin.write(prompt)
     proc.stdin.flush()
 
     text_parts: List[str] = []
@@ -71,27 +104,31 @@ def run_pi_query(
     sent_abort = False
 
     try:
-        deadline = time.time() + PI_QUERY_TIMEOUT
         while True:
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                log_debug(f"Pi query timed out after {PI_QUERY_TIMEOUT}s")
-                break
+            try:
+                ready, _, _ = select.select([proc.stdout], [], [], PI_QUERY_TIMEOUT)
+                if not ready:
+                    proc.kill()
+                    _pi_proc = None
+                    if event_callback:
+                        event_callback("error", msg=f"Pi query timed out after {PI_QUERY_TIMEOUT}s")
+                    return [f"Pi query timed out after {PI_QUERY_TIMEOUT}s"]
 
-            ready, _, _ = select.select([proc.stdout], [], [], min(1.0, remaining))
-            if not ready:
-                continue
+                line = proc.stdout.readline()
+                if not line:
+                    break
 
-            raw = proc.stdout.readline()
-            if not raw:
-                break
-
-            raw = raw.strip()
-            if not raw:
-                continue
+                raw = line.strip()
+                if not raw:
+                    continue
+            except (BrokenPipeError, OSError) as exc:
+                if event_callback:
+                    event_callback("error", msg=f"Pi connection lost: {exc}")
+                _pi_proc = None
+                return [f"Pi connection lost: {exc}"]
 
             try:
-                event = json.loads(raw.decode())
+                event = json.loads(raw)
             except json.JSONDecodeError:
                 log_debug(f"Pi JSON decode error for line: {raw[:200]}")
                 continue
@@ -104,7 +141,7 @@ def run_pi_query(
                     event_callback("think", status="start", msg=f"Pi turn {seen_turns}/{max_turns}")
                 if max_turns and seen_turns > max_turns and not sent_abort:
                     abort = json.dumps({"id": "2", "type": "abort"}) + "\n"
-                    proc.stdin.write(abort.encode())
+                    proc.stdin.write(abort)
                     proc.stdin.flush()
                     sent_abort = True
                 continue
@@ -155,6 +192,7 @@ def run_pi_query(
             proc.wait(timeout=3)
         except Exception:
             pass
+        _pi_proc = None
 
     result = "".join(text_parts).strip()
     if tool_outputs:
@@ -163,7 +201,7 @@ def run_pi_query(
             result = result + "\n\n" + tool_block
         else:
             result = tool_block
-    stderr_text = proc.stderr.read().decode() if proc.stderr else ""
+    stderr_text = proc.stderr.read() if proc.stderr else ""
     if stderr_text:
         log_debug("Pi stderr:", stderr_text[:500])
 
