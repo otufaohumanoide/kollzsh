@@ -66,44 +66,178 @@ def _ensure_pi_running(
     return _pi_proc
 
 
-def _build_librarian_prompt(query: str, extra: str) -> str:
-    kb_path = os.path.join(os.path.expanduser("~/.pi/agent/extensions/estagiario-data"), "atomos")
+def _build_librarian_prompt(query: str, extra: str, fontes_dir: str = "") -> str:
+    atomos_path = os.path.join(os.path.expanduser("~/.pi/agent/extensions/estagiario-data"), "atomos")
+    kb_sections = []
+
+    kb_sections.append(
+        f"1. Full law texts: {fontes_dir}/*.md (if available)\n"
+        f"   Complete Brazilian laws in markdown files.\n"
+        f"   Use grep directly to find relevant paragraphs by keyword.\n"
+    )
+
+    kb_sections.append(
+        f"2. Structured atoms: {atomos_path}/\n"
+        f"   Legal articles decomposed into individual .md atoms, organized by law code\n"
+        f"   (cp/Codigo Penal, cc/Codigo Civil, cdc/Consumidor, ctn/Tributario, eca/ECA).\n"
+        f"   Each topic directory has _manifest.json (article index) and _meta.json (cross-references).\n"
+    )
+
     prompt = (
-        f"You are a legal research librarian. Your task is to find relevant legal knowledge atoms.\n\n"
-        f"KNOWLEDGE BASE STRUCTURE:\n"
-        f"The knowledge base is at {kb_path}\n"
-        f"Each subdirectory is a law code: cp/ (Codigo Penal), cc/ (Codigo Civil), cdc/ (Consumidor), etc.\n"
-        f"Each law code has topic subdirectories with atom .md files.\n"
-        f"Read _manifest.json in each directory for an index of atoms.\n"
-        f"Read _meta.json for deontic classification and relations between atoms.\n\n"
-        f"QUERY DECOMPOSITION:\n"
-        f"Before searching, decompose complex queries into separate search terms.\n"
-        f"Example: 'roubo onde a vitima foi agredida' → search for: (1) 'roubo', (2) 'lesao corporal' or 'agressao', (3) 'agravantes' or 'circunstancias'\n"
-        f"Example: 'homicidio culposo com reincidencia' → search for: (1) 'homicidio culposo', (2) 'reincidencia'\n"
-        f"Example: 'furto com violencia' → search for: (1) 'furto', (2) 'violencia', (3) 'roubo' (furto com violencia pode ser roubo)\n\n"
+        f"You are a legal concept interpreter and research librarian.\n"
+        f"Your mission: translate ANY user input into legal concepts, then search and return relevant legal content.\n\n"
+        f"————— PHASE 1 — CONCEPT EXTRACTION —————\n"
+        f"The user's message may arrive in any form: a question, a statement, a case description,\n"
+        f"informal language, comma-separated tags, or a mix of all of these.\n\n"
+        f"Your first task is to extract LEGAL CONCEPTS from the message:\n"
+        f"- Identify names of crimes, legal institutes, penalties, procedural stages, principles.\n"
+        f"- Translate informal/descriptive language into formal legal concepts:\n"
+        f"  * \"subtração indevida de itens alheios\" → furto, roubo, apropriação indébita\n"
+        f"  * \"invadir casa dos outros\" → violação de domicílio, invasão\n"
+        f"  * \"bater em alguém\" → lesão corporal, agressão\n"
+        f"  * \"mexer nas coisas alheias\" → furto\n"
+        f"  * \"matar alguém\" → homicídio\n"
+        f"  * \"pegar emprestado e não devolver\" → apropriação indébita\n"
+        f"  * \"vender produto estragado\" → vício do produto, CDC, responsabilidade\n"
+        f"  * \"contrato abusivo\" → cláusulas abusivas, CDC, nulidade\n"
+        f"  * \"condenado, quer reduzir pena com estudo\" → remição, execução penal, LEP\n"
+        f"- For questions about penalties: extract the crime AND the penalty concept.\n"
+        f"- For case descriptions: extract ALL legal institutes mentioned or implied.\n"
+        f"- For tags: treat each tag as a concept to search.\n\n"
+        f"————— PHASE 2 — SEARCH —————\n"
+        f"KNOWLEDGE BASES (search BOTH):\n"
+        f"{''.join(kb_sections)}\n"
         f"SEARCH STRATEGY:\n"
-        f"1. First, list the top-level directories to understand available law codes\n"
-        f"2. Use grep to search for your decomposed terms across the knowledge base\n"
-        f"3. Read _manifest.json files to find relevant atoms by topic\n"
-        f"4. Read _meta.json to understand relations between atoms (requisito_de, causa_de, etc.)\n"
-        f"5. Read the actual atom .md files to get the legal content\n"
-        f"6. If searching for agravantes, aggravating circumstances, or special conditions, search for those terms explicitly\n"
-        f"7. If the query involves multiple crimes or concurrence (concurso), search for each crime separately\n\n"
-        f"OUTPUT:\n"
-        f"After reading each atom .md file, output its FULL CONTENT INLINE in this exact format:\n\n"
-        f"=== ATOM: <path to file> ===\n"
-        f"<complete content of the file copied verbatim>\n"
-        f"=== FIM ATOM ===\n\n"
-        f"NEVER describe or summarize atoms — always reproduce the full content of every atom you read.\n"
-        f"Include the path in each === ATOM line.\n"
-        f"STOP as soon as you find clear answers for ALL decomposed terms.\n"
-        f"AVOID: raw file listings, directory dumps, or explanations without atom content."
+        f"1. Search full law texts FIRST with grep — fastest and most comprehensive.\n"
+        f"   For each extracted concept, grep in {fontes_dir}/*.md\n"
+        f"2. When grep finds relevant paragraphs, read the surrounding context.\n"
+        f"3. Search atomos second for granular detail using _manifest.json.\n"
+        f"4. Use synonyms and related terms:\n"
+        f"   * remição → remir, redução de pena, Lei 7.210\n"
+        f"   * falta grave → infração disciplinar, indisciplina\n"
+        f"   * furto → subtração, coisa alheia, art. 155\n"
+        f"5. If a concept is not found anywhere, note it in the report.\n\n"
+        f"————— OUTPUT FORMAT —————\n"
+        f"Your ENTIRE response must follow this EXACT structure with NO other text:\n\n"
+        f"CONCEITOS:\n"
+        f"- conceito1\n"
+        f"- conceito2\n\n"
+        f"MATERIAL:\n"
+        f"Fonte: nome_da_lei, Art. XX\n"
+        f"<texto completo do dispositivo legal>\n\n"
+        f"Fonte: nome_da_lei, Art. YY, § ZZ\n"
+        f"<texto completo>\n\n"
+        f"RELATORIO:\n"
+        f"- Busquei em: [arquivos/diretórios]\n"
+        f"- Encontrei X resultados para [conceito]\n"
+        f"- Não encontrei para [conceito]: [motivo]\n\n"
+        f"————— RULES —————\n"
+        f"- NEVER answer the user's question or give an opinion.\n"
+        f"- NEVER describe, summarize, or paraphrase legal content.\n"
+        f"- ALWAYS reproduce the FULL TEXT of every legal provision found.\n"
+        f"- NEVER include grep line numbers, bash commands, tool headers, or JSON.\n"
+        f"- NEVER include your reasoning, thinking process, or narrative like \"Vou analisar...\".\n"
+        f"- Your output must contain ONLY the CONCEITOS, MATERIAL, and RELATORIO sections.\n"
+        f"- If nothing is found, output only the RELATORIO section explaining what was searched.\n"
+        f"- STOP searching once you have covered all extracted concepts."
     )
     if query.strip():
-        prompt += f"\n\nUSER QUERY:\n{query}"
+        prompt += f"\n\n===== USER MESSAGE =====\n{query}\n===== END MESSAGE ====="
     if extra:
-        prompt += f"\n\nUser context: {extra}"
+        prompt += f"\n\nAdditional context: {extra}"
     return prompt
+
+
+def _assemble_librarian_result(text_parts, tool_outputs):
+    """Extract structured output from Pi agent response.
+
+    Prefers the structured markers (CONCEITOS:/MATERIAL:/RELATORIO:)
+    from the LLM's text output. Falls back to cleaning tool outputs
+    if the LLM didn't produce structured output.
+    """
+    joined = "".join(tp for tp in text_parts if isinstance(tp, str)).strip()
+
+    if joined:
+        sections = _parse_sections(joined)
+        if sections["material"] or sections["relatorio"]:
+            lines = []
+            if sections["conceitos"]:
+                lines.append("=== CONCEITOS EXTRAÍDOS ===")
+                lines.extend(sections["conceitos"])
+                lines.append("")
+            if sections["material"]:
+                lines.append("=== MATERIAL ENCONTRADO ===")
+                lines.extend(sections["material"])
+                lines.append("")
+            if sections["relatorio"]:
+                lines.append("=== RELATÓRIO DE BUSCA ===")
+                lines.extend(sections["relatorio"])
+            return lines
+
+    clean = _clean_tool_outputs(tool_outputs)
+    if clean:
+        result = ["=== MATERIAL ENCONTRADO ==="]
+        result.extend(clean)
+        return result
+
+    return ["[Deep search] No structured content found. Check /tmp/kollzsh_debug.log for details."]
+
+
+def _parse_sections(text):
+    """Parse CONCEITOS:/MATERIAL:/RELATORIO: sections from text."""
+    sections = {"conceitos": [], "material": [], "relatorio": []}
+    current = None
+
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        upper = stripped.upper().rstrip(":")
+        if upper == "CONCEITOS":
+            current = "conceitos"
+            continue
+        if upper == "MATERIAL":
+            current = "material"
+            continue
+        if upper.startswith("RELATORIO"):
+            current = "relatorio"
+            continue
+
+        if current:
+            sections[current].append(stripped)
+
+    for key in sections:
+        while sections[key] and sections[key][-1] == "":
+            sections[key].pop()
+    return sections
+
+
+def _clean_tool_outputs(tool_outputs):
+    """Remove grep line numbers, tool headers, bash commands, TTL syntax.
+
+    Keeps only readable text content from tool outputs.
+    """
+    cleaned = []
+    for line in tool_outputs:
+        stripped = line.strip()
+        if not stripped:
+            cleaned.append("")
+            continue
+        if stripped.startswith("--- [") or stripped.startswith("{") or stripped.startswith("}"):
+            continue
+        if stripped.startswith("total ") or stripped.startswith("("):
+            continue
+        if stripped.endswith(":"):
+            continue
+        no_prefix = stripped.split("- ", 1)[-1] if " - " in stripped else stripped
+        no_prefix = no_prefix.split(":", 1)[-1] if ":" in no_prefix.split(" ", 1)[0] else no_prefix
+        no_prefix = no_prefix.split(" - ", 1)[-1] if " - " in no_prefix else no_prefix
+        if no_prefix.startswith("rb:") or no_prefix.startswith("rdfs:") or no_prefix.startswith("owl:"):
+            continue
+        if no_prefix.strip():
+            cleaned.append(no_prefix.strip())
+    return cleaned
 
 
 def run_pi_query(
@@ -116,6 +250,7 @@ def run_pi_query(
     max_turns: int = 6,
     context_level: str = "level3",
     event_callback: Optional[EventCallback] = None,
+    fontes_dir: str = "",
 ) -> List[str]:
     global _pi_proc
     try:
@@ -126,7 +261,7 @@ def run_pi_query(
         return [f"Pi setup error: {exc}"]
 
     extra = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
-    librarian_query = _build_librarian_prompt(query, extra)
+    librarian_query = _build_librarian_prompt(query, extra, fontes_dir)
     prompt = json.dumps({"id": "1", "type": "prompt", "message": librarian_query}) + "\n"
     proc.stdin.write(prompt)
     proc.stdin.flush()
@@ -241,21 +376,12 @@ def run_pi_query(
             pass
         _pi_proc = None
 
-    result = "".join(text_parts).strip()
-    if tool_outputs:
-        outputs_text = "\n".join(tool_outputs).strip()
-        if result:
-            result += "\n\n" + outputs_text
-        else:
-            result = outputs_text
     stderr_text = proc.stderr.read() if proc.stderr else ""
     if stderr_text:
         log_debug("Pi stderr:", stderr_text[:500])
 
-    if not result:
-        log_debug("Pi returned empty result, checking stderr")
-        result = "[Deep search error] Check /tmp/kollzsh_debug.log for details"
-    elif event_callback:
-        log_debug(f"Pi completed: {len(result)} chars, {len(result.splitlines())} lines")
+    lines = _assemble_librarian_result(text_parts, tool_outputs)
+    if event_callback:
+        log_debug(f"Pi completed: {len(''.join(lines))} chars, {len(lines)} lines")
 
-    return result.split("\n")
+    return lines

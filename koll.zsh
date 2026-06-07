@@ -3,6 +3,7 @@
 (( ! ${+KOLLZSH_URL} )) && typeset -g KOLLZSH_URL='http://localhost:8080'
 (( ! ${+KOLLZSH_DAEMON_SOCK} )) && typeset -g KOLLZSH_DAEMON_SOCK='/tmp/kollzshd.sock'
 (( ! ${+KOLLZSH_PLUGIN_DIR} )) && typeset -g KOLLZSH_PLUGIN_DIR="${${(%):-%x}:A:h}"
+(( ! ${+KOLLZSH_FONTES_DIR} )) && typeset -g KOLLZSH_FONTES_DIR="/home/marcos/meusprojetosLLM/plugin_estagiario/plugin/meu_conhecimento/00_fontes"
 
 source "${KOLLZSH_PLUGIN_DIR}/utils.zsh"
 source "${KOLLZSH_PLUGIN_DIR}/kollzsh-validate.zsh"

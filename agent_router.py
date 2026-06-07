@@ -82,14 +82,16 @@ class AgentRouter:
         )
         max_turns = int(os.environ.get("KOLLZSH_PI_MAX_TURNS", "6"))
         context_level = os.environ.get("KOLLZSH_PI_CONTEXT_LEVEL", "level3")
+        fontes_dir = os.environ.get("KOLLZSH_FONTES_DIR", "")
 
         try:
             lines = run_pi_query(
                 self.shell.cwd, query, plugin_dir, agent_dir,
                 url, model, max_turns, context_level,
                 event_callback=event_sender,
+                fontes_dir=fontes_dir,
             )
-            return truncate_output(lines)
+            return lines
         except Exception as exc:
             if event_sender:
                 event_sender("error", msg=f"Pi query failed: {exc}")
