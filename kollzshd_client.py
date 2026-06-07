@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""CLI de comunicacao com o daemon kollzsh via Unix socket.
+"""CLI for communicating with the kollzsh daemon via Unix socket.
 
-Substitui os scripts inline ``python3 -c`` que antes estavam em ``koll.zsh``,
-eliminando quoting fragility e centralizando a logica de socket/Python.
+Replaces the inline ``python3 -c`` scripts that were previously in ``koll.zsh``,
+eliminating quoting fragility and centralizing socket/Python logic.
 
-Uso:
+Usage:
     python3 kollzshd_client.py send --query "..." --mode navigation [--lines]
     python3 kollzshd_client.py stream --query "..."
     python3 kollzshd_client.py parse-lines
@@ -19,15 +19,15 @@ SOCKET_PATH: str = "/tmp/kollzshd.sock"
 
 
 def _send_query(sock_path: str, query: str, mode: str) -> str:
-    """Envia query JSON ao daemon e retorna a resposta completa.
+    """Send JSON query to the daemon and return the full response.
 
     Args:
-        sock_path: Caminho do socket Unix do daemon.
-        query: Consulta do usuario.
-        mode: Modo de operacao (navigation ou deep).
+        sock_path: Path to the daemon's Unix socket.
+        query: User query.
+        mode: Operation mode (navigation or deep).
 
     Returns:
-        String com a resposta JSON do daemon.
+        String with the daemon's JSON response.
     """
     payload = json.dumps({"query": query, "mode": mode})
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -52,17 +52,17 @@ def _send_query(sock_path: str, query: str, mode: str) -> str:
 
 
 def _render_event(event: dict) -> str:
-    """Formata um evento de streaming para exibicao no terminal.
+    """Format a streaming event for terminal display.
 
-    Renderiza para texto legivel os eventos enviados pelo daemon,
-    com icones e identacao consistentes.
+    Renders daemon events into readable text with
+    consistent icons and indentation.
 
     Args:
-        event: Dict do evento (type, round, msg, cmd, lines, etc).
+        event: Event dict (type, round, msg, cmd, lines, etc).
 
     Returns:
-        String formatada para stderr, ou string vazia se evento
-        nao tiver representacao textual.
+        Formatted string for stderr, or empty string if the event
+        has no textual representation.
     """
     event_type = event.get("type", "")
     round_num = event.get("round", "")
@@ -81,14 +81,14 @@ def _render_event(event: dict) -> str:
 
 
 def _stream_query(sock_path: str, query: str) -> None:
-    """Streaming de eventos para stdout (direto ao terminal do usuario).
+    """Stream events to stdout (direct to user terminal).
 
-    Conecta ao daemon em modo streaming, le eventos JSON linha a linha.
-    Todo output vai para stdout para que o widget ZSH exiba diretamente.
+    Connects to the daemon in streaming mode, reads JSON events line by line.
+    All output goes to stdout so the ZSH widget displays directly.
 
     Args:
-        sock_path: Caminho do socket Unix.
-        query: Consulta do usuario para busca profunda.
+        sock_path: Path to the Unix socket.
+        query: User query for deep search.
     """
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
@@ -124,11 +124,11 @@ def _stream_query(sock_path: str, query: str) -> None:
                 if event.get("type") == "done":
                     lines = event.get("lines", [])
                     if lines:
-                        print(f"\n=== Resultado ({len(lines)} linhas) ===", flush=True)
+                        print(f"\n=== Results ({len(lines)} lines) ===", flush=True)
                         for l in lines:
                             print(l, flush=True)
                     else:
-                        print("\n[busca profunda] Nenhum resultado encontrado.", flush=True)
+                        print("\n[deep search] No results found.", flush=True)
                     return
 
                 rendered = _render_event(event)
@@ -145,10 +145,10 @@ def _stream_query(sock_path: str, query: str) -> None:
 
 
 def _parse_lines() -> None:
-    """Le JSON da stdin e imprime cada linha de 'lines' no stdout.
+    """Read JSON from stdin and print each line of 'lines' to stdout.
 
-    Utilizado pelo ZSH para extrair linhas de resultado da resposta
-    do daemon sem precisar de um inline ``python3 -c``.
+    Used by ZSH to extract result lines from daemon responses
+    without needing an inline ``python3 -c``.
     """
     try:
         data = json.loads(sys.stdin.read())
@@ -160,7 +160,7 @@ def _parse_lines() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="CLI para comunicacao com o daemon kollzsh.",
+        description="CLI for communicating with the kollzsh daemon.",
     )
     sub = parser.add_subparsers(dest="command")
     sub.required = True
@@ -172,7 +172,7 @@ def main() -> None:
     send_parser.add_argument(
         "--lines",
         action="store_true",
-        help="Extrai linhas do JSON de resposta para pipe no fzf",
+        help="Extract lines from JSON response for piping to fzf",
     )
 
     stream_parser = sub.add_parser("stream")

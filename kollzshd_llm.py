@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Módulo de interação com LLM para o daemon kollzsh.
+"""LLM interaction module for the kollzsh daemon.
 
-Responsável por:
-- Construir prompt para o modo navegação
-- Realizar chamadas HTTP à API OpenAI-compatible do servidor LLM
-- Extrair comandos de respostas da LLM (tool_calls ou parsing de conteúdo)
+Responsible for:
+- Building prompts for navigation mode
+- Making HTTP calls to the OpenAI-compatible LLM API
+- Extracting commands from LLM responses (tool_calls or content parsing)
 
-O daemon usa este módulo para comunicar com a LLM. O módulo NÃO executa
-comandos — isso fica a cargo de ``kollzshd_commands.py``.
+The daemon uses this module to communicate with the LLM. It does NOT execute
+commands — that is handled by ``kollzshd_commands.py``.
 """
 
 import ast
@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 from kollzshd_commands import parse_and_validate_commands
 from kollzshd_logging import log_debug
 
-# Definição da tool/function que a LLM pode usar para retornar comandos estruturados
+# Tool/function definition the LLM can use to return structured commands
 TOOL_DEFINITION: Dict[str, Any] = {
     "type": "function",
     "function": {
@@ -44,30 +44,30 @@ TOOL_DEFINITION: Dict[str, Any] = {
 
 
 def _get_system_context() -> str:
-    """Retorna conteudo extra da env KOLLZSH_SYSTEM_CONTEXT para in-context learning.
-    
-    O usuario pode definir exemplos ou instrucoes que serao injetadas
-    no system prompt da LLM. Exemplo no ~/.zshrc:
-      export KOLLZSH_SYSTEM_CONTEXT="Sempre use aspas simples nos comandos.
-    Exemplo correto: grep -r 'termo' .
-    Exemplo ERRADO: grep -r \\"termo\\" ."
+    """Return extra context from KOLLZSH_SYSTEM_CONTEXT env for in-context learning.
+
+    The user can define examples or instructions that will be injected
+    into the LLM system prompt. Example in ~/.zshrc:
+      export KOLLZSH_SYSTEM_CONTEXT="Always use single quotes in commands.
+    Correct example: grep -r 'term' .
+    WRONG example: grep -r \"term\" ."
     """
     return os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
 
 
 def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
-    """Constrói o payload da API para o modo navegação (Ctrl+O).
+    """Build the API payload for navigation mode (Ctrl+O).
 
-    Modo simples de round único: a LLM gera comandos, o daemon executa,
-    e o resultado vai direto para o fzf. Usa tool_calling para garantir
-    que a LLM retorne JSON estruturado.
+    Simple single-round mode: the LLM generates commands, the daemon executes them,
+    and the result goes straight to fzf. Uses tool_calling to ensure
+    the LLM returns structured JSON.
 
     Args:
-        cwd: Diretório de trabalho atual do daemon.
-        query: Consulta do usuário (buffer do terminal).
+        cwd: Current working directory of the daemon.
+        query: User query (terminal buffer).
 
     Returns:
-        Dict com payload completo para POST /v1/chat/completions.
+        Dict with full payload for POST /v1/chat/completions.
     """
     model = os.getenv('KOLLZSH_MODEL', 'unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL')
     extra = _get_system_context()
@@ -96,16 +96,16 @@ def build_navigation_prompt(cwd: str, query: str) -> Dict[str, Any]:
 
 
 def extract_commands(response_data: Dict[str, Any]) -> List[str]:
-    """Extrai comandos da resposta da LLM.
+    """Extract commands from an LLM response.
 
-    Tenta extrair via tool_calls primeiro (formato estruturado preferido).
-    Se não houver tool_calls, faz parsing do campo content como fallback.
+    Tries tool_calls first (preferred structured format).
+    If no tool_calls, parses the content field as fallback.
 
     Args:
-        response_data: Resposta JSON da API /v1/chat/completions.
+        response_data: JSON response from the /v1/chat/completions API.
 
     Returns:
-        Lista de strings de comandos extraídos (vazia se nenhum encontrado).
+        List of extracted command strings (empty if none found).
     """
     if not response_data:
         return []
@@ -116,7 +116,7 @@ def extract_commands(response_data: Dict[str, Any]) -> List[str]:
 
     message = choices[0].get("message", {})
 
-    # Tenta extrair de tool_calls (formato preferido)
+    # Try tool_calls first (preferred format)
     tool_calls = message.get("tool_calls")
     if tool_calls:
         for tc in tool_calls:
@@ -130,7 +130,7 @@ def extract_commands(response_data: Dict[str, Any]) -> List[str]:
                 except (json.JSONDecodeError, KeyError) as e:
                     log_debug(f"Error parsing tool call arguments: {e}")
 
-    # Fallback: parse do campo content (resposta em texto livre)
+    # Fallback: parse content field (free-text response)
     content = message.get("content", "")
     if content:
         log_debug("No tool calls, falling back to content parsing")
@@ -140,26 +140,26 @@ def extract_commands(response_data: Dict[str, Any]) -> List[str]:
 
 
 def _parse_content_commands(content: str) -> List[str]:
-    """Parseia comandos de uma string de conteúdo cru.
+    """Parse commands from a raw content string.
 
-    Tenta, em ordem:
-    1. Extrair de code fence markdown (````json ... ``` ```)
-    2. Parsear como JSON (lista ou dict com chave "commands")
-    3. Parsear como Python literal (ast.literal_eval)
-    4. Parse linha a linha via ``parse_and_validate_commands``
+    Tries, in order:
+    1. Extract from markdown code fence (````json ... ``` ```)
+    2. Parse as JSON (list or dict with "commands" key)
+    3. Parse as Python literal (ast.literal_eval)
+    4. Line-by-line parse via ``parse_and_validate_commands``
 
     Args:
-        content: String contendo comandos em formato variado.
+        content: String containing commands in various formats.
 
     Returns:
-        Lista de strings de comandos validados como seguros.
+        List of command strings validated as safe.
     """
-    # Tenta extrair de code fence markdown
+    # Try extracting from markdown code fence
     markdown_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
     if markdown_match:
         content = markdown_match.group(1)
 
-    # Tenta JSON direto
+    # Try direct JSON
     try:
         parsed = json.loads(content)
         if isinstance(parsed, list):
@@ -169,7 +169,7 @@ def _parse_content_commands(content: str) -> List[str]:
     except json.JSONDecodeError:
         pass
 
-    # Tenta Python literal
+    # Try Python literal
     try:
         parsed = ast.literal_eval(content)
         if isinstance(parsed, list):
@@ -177,20 +177,20 @@ def _parse_content_commands(content: str) -> List[str]:
     except (ValueError, SyntaxError):
         pass
 
-    # Último recurso: parse linha a linha
+    # Last resort: line-by-line parse
     validated = parse_and_validate_commands(content)
     return [cmd for cmd, is_safe, _reason in validated if is_safe]
 
 
 def call_llm(payload: Dict[str, Any], timeout: int = 120) -> Optional[Dict[str, Any]]:
-    """Realiza chamada HTTP POST ao endpoint /v1/chat/completions.
+    """Make HTTP POST request to the /v1/chat/completions endpoint.
 
     Args:
-        payload: Corpo da requisição JSON (model, messages, tools, etc).
-        timeout: Timeout em segundos para a requisição HTTP.
+        payload: JSON request body (model, messages, tools, etc).
+        timeout: Timeout in seconds for the HTTP request.
 
     Returns:
-        Dict com a resposta da API, ou None em caso de erro.
+        Dict with the API response, or None on error.
     """
     llm_url = os.getenv('KOLLZSH_URL', 'http://localhost:8080').rstrip('/')
     chat_url = f"{llm_url}/v1/chat/completions"

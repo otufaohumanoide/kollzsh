@@ -13,15 +13,21 @@ ZSH widget → Unix socket → kollzshd.py (Python daemon)
 **ZSH layer:**
 - `kollzsh.plugin.zsh` — oh-my-zsh entry point (sources `koll.zsh`)
 - `koll.zsh` — widget definitions, hotkeys, daemon lifecycle, socket I/O
+- `kollzsh-validate.zsh` — health checks (daemon, LLM running)
+- `kollzsh-daemon.zsh` — daemon lifecycle (start, EXIT trap, code-change detection)
 - `utils.zsh` — `check_command`, `check_llm_running`, `check_daemon_running`
 
 **Daemon (Python 3.10+, stdlib-only — no pip, no venv):**
-- `kollzshd.py` — socket server (`/tmp/kollzshd.sock`), persistent bash subprocess, CWD tracking, agent dispatch
-- `kollzshd_commands.py` — command whitelist, safety validation, `execute_command` with `__KSEP__`/`__KEND__` marker protocol, `truncate_output` sandwich
-- `kollzshd_llm.py` — `build_navigation_prompt`, `call_llm` via `urllib`, `extract_commands` from tool_calls or content fallback
-- `kollzshd_pi.py` — Pi RPC client for deep search (Node.js DCI-Agent), auto-setup (nvm, git clone, npm install, build)
+- `kollzshd.py` — entry point (PID file check, starts ``DaemonServer``)
+- `server.py` — socket server, accept loop, signal handling, inactivity timeout
+- `shell_manager.py` — persistent bash subprocess, CWD tracking, `execute_command` with UUID marker protocol
+- `agent_router.py` — dispatches navigation vs deep queries, coordinates LLM + Pi
+- `kollzshd_commands.py` — pure functions: command whitelist, safety validation, `truncate_output` sandwich, `parse_and_validate_commands`
+- `kollzshd_llm.py` — `build_navigation_prompt`, `call_llm` via `urllib` (retry with backoff), `extract_commands` from tool_calls or content fallback
 - `kollzshd_logging.py` — shared `setup_logging()` / `log_debug()` (guarded against double init)
 - `kollzshd_client.py` — CLI socket client used by `koll.zsh` (subcommands: `send`, `stream`, `parse-lines`)
+- `pi_setup.py` — Pi DCI-Agent auto-setup (nvm, git clone, npm install, build, models.json)
+- `pi_client.py` — Pi RPC subprocess, streaming event loop, query timeout
 
 ## Widgets & Hotkeys
 
@@ -99,7 +105,7 @@ Pipelines with destructive commands, redirects to block devices, and dangerous p
 
 ## Development Workflow
 
-- **No test framework, no CI, no linter** — test manually by sourcing the plugin in ZSH
+- **56 pytest unit tests** in `tests/` — run with `python3 -m pytest tests/`
 - Debug log: `tail -f /tmp/kollzsh_debug.log` (log file is `chmod 666` in `koll.zsh`)
 - After changing any `.py` file, the daemon auto-restarts on next widget invocation (timestamp check)
 - After changing `koll.zsh` or `utils.zsh`, re-source: `source ~/.zshrc` or open a new terminal

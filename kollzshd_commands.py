@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Validação e parsing de comandos para o daemon kollzsh.
+"""Command validation and parsing for the kollzsh daemon.
 
-Fornece funções para:
-- Validar segurança de comandos shell (whitelist read-only vs destrutivos)
-- Truncar output longo (sanduíche: top N + bottom N linhas)
-- Parsear e validar listas de comandos vindas de respostas da LLM
+Provides functions for:
+- Shell command safety validation (read-only whitelist vs destructive)
+- Long output truncation (sandwich: top N + bottom N lines)
+- Parsing and validating command lists from LLM responses
 
-A execução dos comandos é feita pelo ``shell_manager.ShellManager``.
+Command execution is handled by ``shell_manager.ShellManager``.
 """
 
 import ast
@@ -19,7 +19,7 @@ from typing import List, Tuple
 from kollzshd_logging import log_debug
 
 
-# Comandos de leitura — executam automaticamente sem confirmação do usuário
+# Read-only commands — execute automatically without user confirmation
 READONLY_COMMANDS: set[str] = {
     "grep", "rg", "ag", "find", "ls", "cat", "head", "tail", "wc", "stat",
     "file", "sort", "uniq", "diff", "tree", "pwd", "echo", "which", "type",
@@ -30,7 +30,7 @@ READONLY_COMMANDS: set[str] = {
     "sha256sum",
 }
 
-# Comandos destrutivos — exigem confirmação do usuário via fzf
+# Destructive commands — blocked at daemon level (not sent to fzf)
 DESTRUCTIVE_COMMANDS: set[str] = {
     "rm", "mv", "cp", "chmod", "chown", "sudo", "kill", "apt", "pacman",
     "brew", "dnf", "yum", "pip", "npm", "docker", "systemctl", "mkfs", "dd",
@@ -42,20 +42,20 @@ DESTRUCTIVE_COMMANDS: set[str] = {
 
 
 def validate_command_safety(command: str) -> Tuple[bool, str]:
-    """Validação profunda de segurança de um comando shell.
+    """Deep safety validation of a shell command.
 
-    Camadas de verificação:
-    1. Comando vazio ou heredoc
-    2. Primeiro token contra DESTRUCTIVE_COMMANDS
-    3. Segmentos de pipeline (``ls | rm -rf /`` é bloqueado)
-    4. Padrões perigosos via regex (``rm -rf /``, redirects para ``/dev/sd``)
-    5. Flags perigosas específicas por comando
+    Verification layers:
+    1. Empty command or heredoc
+    2. First token checked against DESTRUCTIVE_COMMANDS
+    3. Pipeline segments (``ls | rm -rf /`` is blocked)
+    4. Dangerous patterns via regex (``rm -rf /``, redirects to ``/dev/sd``)
+    5. Command-specific dangerous flags
 
     Args:
-        command: Comando shell a ser validado.
+        command: Shell command to validate.
 
     Returns:
-        Tupla ``(is_safe, reason)`` — True se seguro, False com motivo da rejeição.
+        Tuple ``(is_safe, reason)`` — True if safe, False with rejection reason.
     """
     if not command or not command.strip():
         return False, "Empty command"
@@ -73,7 +73,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
     if not tokens:
         return False, "No command tokens found"
 
-    # Extrai o nome do comando, removendo caminho absoluto se presente
+    # Extract command name, stripping absolute path if present
     first_token = tokens[0].lower()
     if '/' in first_token:
         first_token = first_token.split('/')[-1]
@@ -81,7 +81,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
     if first_token in DESTRUCTIVE_COMMANDS:
         return False, f"Blocked command: {first_token}"
 
-    # Verifica cada segmento de pipeline individualmente
+    # Check each pipeline segment individually
     if '|' in command:
         segments = command.split('|')
         for segment in segments:
@@ -91,7 +91,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
                 if segment_first in DESTRUCTIVE_COMMANDS:
                     return False, f"Blocked command in pipeline: {segment_first}"
 
-    # Padrões regex para operações perigosas (rm -rf /, redirects para dispositivos)
+    # Regex patterns for dangerous operations (rm -rf /, device redirects)
     dangerous_patterns = [
         r'rm\s+.*-rf\s+/',
         r'rm\s+.*-r\s+/',
@@ -107,7 +107,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
         if re.search(pattern, command, re.IGNORECASE):
             return False, f"Matches dangerous pattern: {pattern}"
 
-    # Padrões de redirect para dispositivos de bloco
+    # Block device redirect patterns
     redirect_patterns = [
         r'>\s*/dev/sd',
         r'>>\s*/dev/sd',
@@ -117,7 +117,7 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
         if re.search(pattern, command, re.IGNORECASE):
             return False, f"Matches dangerous redirect: {pattern}"
 
-    # Flags perigosas específicas por comando
+    # Command-specific dangerous flags
     dangerous_flags = {
         'rm': ['-rf', '-r', '-f', '-fr'],
         'dd': ['of=', 'if='],
@@ -132,20 +132,20 @@ def validate_command_safety(command: str) -> Tuple[bool, str]:
 
 
 def truncate_output(lines: list[str], max_lines: int = 120) -> list[str]:
-    """Trunca output usando método sanduíche: top N + bottom N.
+    """Truncate output using sandwich method: top N + bottom N.
 
-    Quando o output excede ``max_lines``, mantém as primeiras e últimas
-    ``max_lines // 2`` linhas, inserindo um marcador indicando quantas
-    foram omitidas. Evita que outputs gigantes estourem o contexto da LLM.
+    When output exceeds ``max_lines``, keeps the first and last
+    ``max_lines // 2`` lines, inserting a marker showing how many
+    were omitted. Prevents giant outputs from blowing the LLM context.
 
     Args:
-        lines: Lista de linhas de output.
-        max_lines: Número máximo de linhas no output final.
-                   Metade vai para o topo, metade para a base.
-                   Mínimo 2 (para exibir pelo menos 1 top + 1 bottom).
+        lines: List of output lines.
+        max_lines: Maximum lines in the final output.
+                   Half goes to the top, half to the bottom.
+                   Minimum 2 (to show at least 1 top + 1 bottom).
 
     Returns:
-        Lista truncada com marcador de omissão no meio.
+        Truncated list with omission marker in the middle.
     """
     if max_lines < 2:
         max_lines = 2
@@ -159,26 +159,26 @@ def truncate_output(lines: list[str], max_lines: int = 120) -> list[str]:
 
 
 def parse_and_validate_commands(content: str) -> List[Tuple[str, bool, str]]:
-    """Parseia comandos de uma string e valida segurança de cada um.
+    """Parse commands from a string and validate each one.
 
-    Tenta parsear como JSON, depois como Python literal (ast.literal_eval),
-    e como fallback faz parse linha a linha. Cada comando encontrado é
-    validado com ``validate_command_safety``.
+    Tries JSON first, then Python literal (ast.literal_eval),
+    and falls back to line-by-line parsing. Each found command
+    is validated with ``validate_command_safety``.
 
     Args:
-        content: String contendo comandos (JSON, Python literal, ou texto plano).
+        content: String containing commands (JSON, Python literal, or plain text).
 
     Returns:
-        Lista de tuplas ``(command, is_safe, reason)``.
+        List of ``(command, is_safe, reason)`` tuples.
     """
     results: List[Tuple[str, bool, str]] = []
 
     try:
-        # Tenta JSON primeiro (formato preferido da LLM)
+        # Try JSON first (LLM's preferred format)
         try:
             commands = json.loads(content)
         except json.JSONDecodeError:
-            # Fallback para Python literal (listas formatadas sem JSON válido)
+            # Fallback to Python literal (lists formatted without valid JSON)
             commands = ast.literal_eval(content)
 
         if not isinstance(commands, list):
@@ -191,7 +191,7 @@ def parse_and_validate_commands(content: str) -> List[Tuple[str, bool, str]]:
 
     except Exception as e:
         log_debug(f"Error parsing commands: {str(e)}", content)
-        # Último recurso: parse linha a linha
+        # Last resort: line-by-line parse
         for line in content.strip().split('\n'):
             line = line.strip()
             if line and not line.startswith('#'):

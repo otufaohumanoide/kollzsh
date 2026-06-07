@@ -1,4 +1,4 @@
-"""Configuracao centralizada de logging para o daemon kollzsh."""
+"""Centralized logging configuration for the kollzsh daemon."""
 
 import logging
 
@@ -8,10 +8,10 @@ _configured: bool = False
 
 
 def setup_logging(log_file: str = LOG_FILE) -> None:
-    """Inicializa o logging uma unica vez.
+    """Initialize logging once.
 
     Args:
-        log_file: Caminho para o arquivo de log.
+        log_file: Path to the log file.
     """
     global _configured
     if _configured:
@@ -26,11 +26,11 @@ def setup_logging(log_file: str = LOG_FILE) -> None:
 
 
 def log_debug(message: str, data: str | None = None) -> None:
-    """Registra mensagem de debug no log do daemon.
+    """Log a debug message to the daemon log.
 
     Args:
-        message: Mensagem principal.
-        data: Dados adicionais opcionais (payload, output, etc).
+        message: Main message.
+        data: Optional additional data (payload, output, etc).
     """
     if data is not None:
         logging.debug(

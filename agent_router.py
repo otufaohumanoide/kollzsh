@@ -3,7 +3,6 @@ from typing import Callable, List, Optional
 
 from kollzshd_commands import truncate_output
 from kollzshd_llm import build_navigation_prompt, extract_commands, call_llm
-from kollzshd_logging import log_debug
 from pi_client import run_pi_query
 from shell_manager import ShellManager
 
