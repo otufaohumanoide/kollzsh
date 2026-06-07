@@ -44,7 +44,7 @@ Temporary Items
 # Zsh compiled script + zrecompile backup
 *.zwc
 *.zwc.old
-
+*.pyc
 # Zsh completion-optimization dumpfile
 *zcompdump*
 
