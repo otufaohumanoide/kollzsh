@@ -8,7 +8,7 @@ from typing import Callable, List, Optional
 from kollzshd_logging import log_debug
 from pi_setup import ensure_pi_ready
 
-PI_QUERY_TIMEOUT = 300
+PI_QUERY_TIMEOUT: int = 300
 EventCallback = Callable[..., None]
 
 

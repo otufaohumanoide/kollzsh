@@ -3,7 +3,7 @@ import os
 import signal
 import socket
 import time
-from typing import Dict
+from typing import Any, Dict
 
 from kollzshd_logging import log_debug
 from shell_manager import ShellManager
@@ -25,7 +25,7 @@ class DaemonServer:
         self.shell = ShellManager()
         self.router = AgentRouter(self.shell)
 
-    def _send_event(self, conn: socket.socket, type_name: str, **kwargs) -> None:
+    def _send_event(self, conn: socket.socket, type_name: str, **kwargs: Any) -> None:
         event: Dict[str, object] = {"type": type_name}
         event.update(kwargs)
         try:
@@ -46,7 +46,7 @@ class DaemonServer:
         if not self.shell.is_alive:
             self.shell.start_shell()
 
-        def send_event(type_name: str, **kwargs) -> None:
+        def send_event(type_name: str, **kwargs: Any) -> None:
             self._send_event(conn, type_name, **kwargs)
 
         lines = self.router.run_agent_loop(query, "deep", event_sender=send_event)

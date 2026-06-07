@@ -8,8 +8,8 @@ from typing import Callable, Optional
 
 from kollzshd_logging import log_debug
 
-PI_REPO_URL = "https://github.com/jdf-prog/pi-mono.git"
-PI_BRANCH = "codex/context-management-ablation"
+PI_REPO_URL: str = "https://github.com/jdf-prog/pi-mono.git"
+PI_BRANCH: str = "codex/context-management-ablation"
 
 EventCallback = Callable[..., None]
 
