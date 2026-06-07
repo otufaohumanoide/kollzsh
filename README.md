@@ -1,105 +1,101 @@
-# koll.zsh
+# kollzsh
 
-```
-  :###:
-  :   :
-  :   :
-.'     '.
-:       :
-|_______|
-|kollzsh|
-|‐‐‐‐‐‐‐|
-|       |
-:_______:
-```
+Oh-my-zsh plugin pairing a persistent Python daemon with an LLM (OpenAI-compatible API) to suggest shell commands.
 
-An [`oh-my-zsh`](https://ohmyz.sh) plugin that integrates LLMs (OpenAI-compatible API) via [fzf](https://github.com/junegunn/fzf) to provide intelligent shell command suggestions and deep filesystem search.
+## Prerequisites
 
-<img src="demo.svg" alt="Kollzsh Demo" width="600">
-
-## Features
-
-* **Engine-agnostic**: Works with any OpenAI-compatible API — llama.cpp, vLLM, Ollama, etc.
-* **Intelligent Command Suggestions**: Generate shell commands based on your natural language query.
-* **Deep Search**: LLM executes grep, find, rg, cat, etc. directly via a persistent daemon — explores your filesystem for you.
-* **FZF Integration**: Interactively select suggested commands using FZF's fuzzy finder.
-* **Command Safety**: Whitelist of read-only commands executes automatically; destructive commands require user confirmation.
-* **Customizable**: Configure shortcut, model, server URL, and response count.
-
-## Requirements
-
-* `fzf` for interactive selection
-* `python3` for the daemon backend (stdlib only, no pip dependencies)
-* An LLM server with OpenAI-compatible `/v1/chat/completions` endpoint
+- **Python 3.10+** (stdlib only — no pip, no venv)
+- **fzf** — fuzzy finder (`sudo apt install fzf` / `brew install fzf`)
+- **LLM server** — OpenAI-compatible API at `KOLLZSH_URL` (default: `http://localhost:8080`) with model `KOLLZSH_MODEL`
+- **Node.js >=20** — required only for deep/librarian mode (Ctrl+F)
 
 ## Installation
 
-1. Clone the repository to oh-my-zsh custom plugin folder:
-    ```bash
-    git clone https://github.com/otufaohumanoide/kollzsh.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/kollzsh
-    ```
+```bash
+# Clone into oh-my-zsh custom plugins
+git clone https://github.com/your-org/kollzsh.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/kollzsh
 
-2. Enable the plugin in `~/.zshrc`:
-    ```bash
-    plugins=(
-      [plugins...]
-      kollzsh
-    )
-    ```
+# Add to .zshrc before sourcing oh-my-zsh
+export KOLLZSH_URL="http://localhost:8080"
+export KOLLZSH_MODEL="unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL"
 
-3. Type a task description in your terminal and press the shortcut (default Ctrl+`o`) to get command suggestions. Select one with fzf.
+# Then add kollzsh to plugins array
+plugins=(... kollzsh)
 
-## Hotkeys
-
-| Key | Widget | Mode | Description |
-|---|---|---|---|
-| `Ctrl+O` | `fzf_kollzsh` | Navigation | LLM generates commands, daemon executes, fzf selects |
-| `Ctrl+F` | `fzf_kollzsh_deep` | Deep Search | Pi DCI-Agent multi-turn research with context management |
-
-## Architecture
-
-```
-ZSH widget (Ctrl+O / Ctrl+F)
-       │
-       ├── navigation ──► Daemon Python (kollzshd.py)
-       │                    ├── Persistent bash subprocess (--norc --noprofile)
-       │                    ├── CWD synced via pwd after every command
-       │                    ├── Command safety filter (whitelist read-only)
-       │                    ├── Output truncation (top 20 + bottom 20 lines)
-       │                    └── Max 2 rounds per query
-       │
-       └── deep ──► Pi RPC (Node.js DCI-Agent)
-                        ├── Multi-turn research loop
-                        ├── Context management profiles (level0-level5)
-                        ├── Tools: read, bash (read-only)
-                        └── Auto-setup: Node.js, clone, build, models.json
+# Reload
+source ~/.zshrc
 ```
 
-The daemon starts automatically on first use and shuts down when ZSH exits. A PID file (`/tmp/kollzshd.pid`) prevents duplicate instances.
+## Usage
+
+| Key | Mode | Description |
+|---|---|---|
+| `Ctrl+O` | Navigation | LLM generates commands → executes → fzf selection |
+| `Ctrl+F` | Deep librarian | Pi DCI-Agent searches content semantically |
+
+**Navigation mode:** Type a partial command or describe what you want in the terminal, press Ctrl+O, and the LLM generates relevant commands. Results pipe to fzf for selection.
+
+**Deep mode:** Press Ctrl+F to search project files semantically using Pi DCI-Agent. Results stream to terminal (command line stays clean).
 
 ## Configuration
 
 | Variable | Default | Description |
 |---|---|---|
-| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL` | Model name on the LLM server |
-| `KOLLZSH_HOTKEY` | `^o` | Hotkey binding for navigation mode |
 | `KOLLZSH_URL` | `http://localhost:8080` | LLM server URL |
-| `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket for daemon communication |
-| `KOLLZSH_PI_MAX_TURNS` | `20` | Max turns for Pi deep search |
-| `KOLLZSH_PI_CONTEXT_LEVEL` | `level3` | Context management level (level0-level5) |
-| `KOLLZSH_PI_AGENT_DIR` | `~/.pi/agent` | Pi agent directory (models.json) |
+| `KOLLZSH_MODEL` | `unsloth/Qwen3.5-4B-MTP-GGUF:UD-Q6_K_XL` | LLM model name |
+| `KOLLZSH_HOTKEY` | `^o` | ZLE widget binding for navigation |
+| `KOLLZSH_DAEMON_SOCK` | `/tmp/kollzshd.sock` | Unix socket path |
+| `KOLLZSH_PLUGIN_DIR` | auto-detected | Override plugin directory |
+| `KOLLZSH_SYSTEM_CONTEXT` | (empty) | Extra text injected into LLM system prompt |
+| `KOLLZSH_PI_MAX_TURNS` | `20` | Max Pi turns per deep search |
+| `KOLLZSH_PI_CONTEXT_LEVEL` | `level3` | Pi context management level |
+| `KOLLZSH_PI_AGENT_DIR` | `~/.pi/agent` | Pi agent config directory |
 
-### Server URLs for different engines
+## Troubleshooting
 
-| Engine | KOLLZSH_URL |
-|---|---|
-| Ollama | `http://localhost:11434` |
-| llama.cpp server | `http://localhost:8080` (default) |
-| vLLM | `http://localhost:8000` |
+**Daemon won't start:**
+- Check `/tmp/kollzsh_debug.log` for errors
+- Ensure another daemon instance isn't running: `kill $(cat /tmp/kollzshd.pid)`
+- Verify `python3 --version` is 3.10+
 
-## Debugging
+**LLM not responding (Ctrl+O fails):**
+- Run: `curl -s http://localhost:8080/v1/models`
+- Check KOLLZSH_URL is correct and LLM server is running
+- Verify KOLLZSH_MODEL exists in the server's model list
 
-Logs are written to `/tmp/kollzsh_debug.log`. Enable with:
+**Pi/Librarian not working (Ctrl+F fails):**
+- Check Node.js version: `node --version` (needs >=20)
+- Run: `python3 pi_setup.py` for auto-setup
+- Check `/tmp/kollzsh_debug.log` for Pi errors
+
+**Connection refused:**
+- Daemon is not running. Press Ctrl+O/Ctrl+F to auto-start, or run manually: `python3 kollzshd.py &`
+
+## Development
+
 ```bash
+# Run tests
+python3 -m pytest tests/ -v
+
+# Verify Python syntax
+python3 -m py_compile *.py
+
+# Verify ZSH syntax
+zsh -n koll.zsh utils.zsh kollzsh-validate.zsh kollzsh-daemon.zsh
+
+# Debug log
 tail -f /tmp/kollzsh_debug.log
+
+# Changes to .py files auto-restart the daemon
+# Changes to .zsh files need: source ~/.zshrc
 ```
+
+## Architecture
+
+```
+ZSH widget -> Unix socket -> Python daemon
+  navigation mode -> LLM generates commands -> bash executes -> fzf
+  deep mode -> Pi DCI-Agent -> searches content -> streamed events
+```
+
+Split into 10 Python modules and 5 ZSH files — see `AGENTS.md` for details.
