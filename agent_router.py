@@ -16,14 +16,32 @@ class AgentRouter:
     def run_navigation(
         self, query: str, event_sender: Optional[EventSender] = None
     ) -> List[str]:
-        payload = build_navigation_prompt(self.shell.cwd, query)
-        response_data = call_llm(payload)
+        try:
+            payload = build_navigation_prompt(self.shell.cwd, query)
+        except Exception as exc:
+            if event_sender:
+                event_sender("error", msg=f"Prompt building failed: {exc}")
+            return [f"Error building prompt: {exc}"]
+
+        try:
+            response_data = call_llm(payload)
+        except Exception as exc:
+            if event_sender:
+                event_sender("error", msg=f"LLM call failed: {exc}")
+            return [f"LLM call error: {exc}"]
+
         if not response_data:
             if event_sender:
-                event_sender("error", msg="LLM call failed")
-            return ["Error: LLM call failed"]
+                event_sender("error", msg="LLM returned empty response")
+            return ["Error: LLM returned no response"]
 
-        commands = extract_commands(response_data)
+        try:
+            commands = extract_commands(response_data)
+        except Exception as exc:
+            if event_sender:
+                event_sender("error", msg=f"Failed to parse LLM response: {exc}")
+            return [f"Parse error: {exc}"]
+
         if not commands:
             return ["No relevant commands found"]
 
@@ -31,7 +49,12 @@ class AgentRouter:
         for cmd in commands:
             if event_sender:
                 event_sender("cmd", cmd=cmd)
-            success, cmd_output, new_cwd = self.shell.execute_command(cmd)
+            try:
+                success, cmd_output, new_cwd = self.shell.execute_command(cmd)
+            except Exception as exc:
+                if event_sender:
+                    event_sender("error", msg=f"Command failed: {cmd} - {exc}")
+                continue
             if not success and not self.shell.is_alive:
                 self.shell.start_shell()
             if new_cwd:
