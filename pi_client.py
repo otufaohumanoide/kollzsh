@@ -52,7 +52,7 @@ def _ensure_pi_running(
             "--mode", "rpc",
             "--provider", "local",
             "--model", model,
-            "--tools", "read,bash",
+            "--tools", "read,bash,grep,find,ls",
             "--no-session",
             "--context-management-level", context_level,
         ],
@@ -64,6 +64,42 @@ def _ensure_pi_running(
         start_new_session=True,
     )
     return _pi_proc
+
+
+def _build_librarian_prompt(query: str, extra: str) -> str:
+    kb_path = os.path.join(os.path.expanduser("~/.pi/agent/extensions/estagiario-data"), "atomos")
+    prompt = (
+        f"You are a legal research librarian. Your task is to find relevant legal knowledge atoms.\n\n"
+        f"KNOWLEDGE BASE STRUCTURE:\n"
+        f"The knowledge base is at {kb_path}\n"
+        f"Each subdirectory is a law code: cp/ (Codigo Penal), cc/ (Codigo Civil), cdc/ (Consumidor), etc.\n"
+        f"Each law code has topic subdirectories with atom .md files.\n"
+        f"Read _manifest.json in each directory for an index of atoms.\n"
+        f"Read _meta.json for deontic classification and relations between atoms.\n\n"
+        f"QUERY DECOMPOSITION:\n"
+        f"Before searching, decompose complex queries into separate search terms.\n"
+        f"Example: 'roubo onde a vitima foi agredida' → search for: (1) 'roubo', (2) 'lesao corporal' or 'agressao', (3) 'agravantes' or 'circunstancias'\n"
+        f"Example: 'homicidio culposo com reincidencia' → search for: (1) 'homicidio culposo', (2) 'reincidencia'\n"
+        f"Example: 'furto com violencia' → search for: (1) 'furto', (2) 'violencia', (3) 'roubo' (furto com violencia pode ser roubo)\n\n"
+        f"SEARCH STRATEGY:\n"
+        f"1. First, list the top-level directories to understand available law codes\n"
+        f"2. Use grep to search for your decomposed terms across the knowledge base\n"
+        f"3. Read _manifest.json files to find relevant atoms by topic\n"
+        f"4. Read _meta.json to understand relations between atoms (requisito_de, causa_de, etc.)\n"
+        f"5. Read the actual atom .md files to get the legal content\n"
+        f"6. If searching for agravantes, aggravating circumstances, or special conditions, search for those terms explicitly\n"
+        f"7. If the query involves multiple crimes or concurrence (concurso), search for each crime separately\n\n"
+        f"OUTPUT:\n"
+        f"Return the FULL content of ALL matching atoms found.\n"
+        f"Include the atom file path for reference.\n"
+        f"STOP as soon as you find clear answers for ALL decomposed terms.\n"
+        f"AVOID: raw file listings without reading, directory dumps, or extra explanation."
+    )
+    if query.strip():
+        prompt += f"\n\nUSER QUERY:\n{query}"
+    if extra:
+        prompt += f"\n\nUser context: {extra}"
+    return prompt
 
 
 def run_pi_query(
@@ -86,17 +122,7 @@ def run_pi_query(
         return [f"Pi setup error: {exc}"]
 
     extra = os.getenv('KOLLZSH_SYSTEM_CONTEXT', '').strip()
-    kb_path = os.path.join(os.path.expanduser("~/.pi/agent/extensions/estagiario-data"), "atomos")
-    librarian_query = (
-        f"Search topic: {query}\n\n"
-        f"Find the answer in the knowledge base at {kb_path}\n"
-        f"Use your domain search tools to find the relevant atom(s).\n"
-        f"STOP as soon as you find the answer — do not search further.\n"
-        f"Return ONLY the content of the matching atom(s), nothing else.\n"
-        f"AVOID: raw file listings, directory dumps, or extra explanation."
-    )
-    if extra:
-        librarian_query += f"\n\nUser context: {extra}"
+    librarian_query = _build_librarian_prompt(query, extra)
     prompt = json.dumps({"id": "1", "type": "prompt", "message": librarian_query}) + "\n"
     proc.stdin.write(prompt)
     proc.stdin.flush()
