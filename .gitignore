@@ -76,3 +76,6 @@ zsdoc/data
 pi-mono/
 DCI-Agent-Lite/
 
+# Git worktrees
+.worktrees/
+
